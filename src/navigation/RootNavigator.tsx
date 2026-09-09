@@ -19,6 +19,7 @@ import { ReceiveResultScreen } from '@/src/screens/ReceiveResultScreen'
 import { ReferenceScreen } from '@/src/screens/ReferenceScreen'
 import { SettingsScreen } from '@/src/screens/SettingsScreen'
 import { StatsScreen } from '@/src/screens/StatsScreen'
+import { SymbolDetailScreen } from '@/src/screens/SymbolDetailScreen'
 import { TranslatorScreen } from '@/src/screens/TranslatorScreen'
 import { TransmitScreen } from '@/src/screens/TransmitScreen'
 import { useTheme } from '@/src/theme'
@@ -103,6 +104,11 @@ export function RootNavigator ({
 					name="Errors"
 					component={ErrorsScreen}
 					options={{ title: 'Мои ошибки' }}
+				/>
+				<Stack.Screen
+					name="SymbolDetail"
+					component={SymbolDetailScreen}
+					options={{ title: 'Символ' }}
 				/>
 				<Stack.Screen
 					name="QuickPractice"

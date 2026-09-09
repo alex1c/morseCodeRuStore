@@ -63,8 +63,8 @@ describe('receive generator', () => {
 			knownSymbolIds: [],
 			customSymbolIds: [],
 		})
-		expect(pool.length).toBeGreaterThanOrEqual(2)
-		expect(pool.every((id) => id.startsWith('latin-'))).toBe(true)
+		expect(pool.symbolIds.length).toBeGreaterThanOrEqual(2)
+		expect(pool.symbolIds.every((id) => id.startsWith('latin-'))).toBe(true)
 	})
 
 	test('deterministic generation by seed', () => {

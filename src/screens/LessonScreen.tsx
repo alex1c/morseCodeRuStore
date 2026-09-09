@@ -2,7 +2,7 @@
  * Lesson flow — uses shared playback orchestration from Phase 4.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
@@ -22,7 +22,7 @@ import {
 import { createSymbolPlaybackController } from '@/src/features/playback'
 import { saveLessonResultAndProgress } from '@/src/features/learning/progress'
 import type { RootStackParamList } from '@/src/navigation/types'
-import { getLearningProgress, getUserPreferences } from '@/src/storage'
+import { getLearningProgress, getUserPreferences, recordSymbolAttempt } from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Lesson'>
@@ -45,12 +45,17 @@ export function LessonScreen ({ navigation }: Props) {
 		isCorrect: boolean
 	} | null>(null)
 	const [results, setResults] = useState<LessonQuestionResult[]>([])
+	const resultsRef = useRef<LessonQuestionResult[]>([])
 	const prefsRef = useRef({
 		targetWpm: 15,
 		farnsworthMultiplier: 1.5,
 		toneFrequencyHz: 600,
 	})
 	const playbackRef = useRef(createSymbolPlaybackController())
+
+	useEffect(() => {
+		resultsRef.current = results
+	}, [results])
 
 	useFocusEffect(
 		useCallback(() => {
@@ -131,15 +136,24 @@ export function LessonScreen ({ navigation }: Props) {
 			correct: question.symbolId,
 			isCorrect,
 		})
-		setResults((prev) => [
-			...prev,
-			{
-				questionId: question.id,
-				expectedSymbolId: question.symbolId,
-				selectedSymbolId,
-				correct: isCorrect,
-			},
-		])
+		const record = {
+			questionId: question.id,
+			expectedSymbolId: question.symbolId,
+			selectedSymbolId,
+			correct: isCorrect,
+		}
+		setResults((prev) => {
+			const next = [...prev, record]
+			resultsRef.current = next
+			return next
+		})
+		// One confirmed answer = one SymbolStats attempt (replay never reaches here).
+		await recordSymbolAttempt({
+			expectedSymbolId: question.symbolId,
+			isCorrect,
+			responseTimeMs: null,
+			answerSymbolId: isCorrect ? undefined : selectedSymbolId,
+		})
 	}
 
 	const goNextQuestion = async () => {
@@ -153,7 +167,7 @@ export function LessonScreen ({ navigation }: Props) {
 			const result = buildLessonResult(
 				lesson.id,
 				lesson.courseId,
-				results,
+				resultsRef.current,
 			)
 			await saveLessonResultAndProgress(result)
 			navigation.replace('LessonResult', {

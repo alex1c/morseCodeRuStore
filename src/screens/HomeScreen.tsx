@@ -15,11 +15,27 @@ import {
 	SurfaceCard,
 } from '@/src/components/ui'
 import type { RootStackParamList } from '@/src/navigation/types'
-import { getLessonById } from '@/src/domain'
+import {
+	buildAdaptiveSessionPool,
+	getSymbolById,
+	getLessonById,
+	hasEnoughAdaptiveData,
+	listWeakForDisplay,
+	listMasteryForAlphabet,
+	selectWeakSymbolPool,
+} from '@/src/domain'
 import { ensureCourseDefaults } from '@/src/features/learning/progress'
+import {
+	adaptiveLaunchCooldown,
+	buildReceiveLaunch,
+} from '@/src/features/receive'
 import { useAppBootstrap } from '@/src/features/bootstrap/AppBootstrap'
-import { getReceiveSettings } from '@/src/storage'
+import {
+	getReceiveSettings,
+	getSymbolStatsMap,
+} from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
+import type { SymbolStatsMap } from '@/src/types'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>
 
@@ -32,22 +48,41 @@ export function HomeScreen ({ navigation }: Props) {
 	const [receiveSubtitle, setReceiveSubtitle] = useState(
 		'20 вопросов · 12 WPM',
 	)
+	const [weakPreview, setWeakPreview] = useState<string[]>([])
+	const [canTrainWeak, setCanTrainWeak] = useState(false)
+	const [homeAlphabet, setHomeAlphabet] = useState<'RU' | 'LATIN'>('RU')
+	const [statsMap, setStatsMap] = useState<SymbolStatsMap>({})
+	const [knownIds, setKnownIds] = useState<string[]>([])
+	const [receiveBase, setReceiveBase] = useState<
+		Partial<import('@/src/features/receive').ReceiveSettings>
+	>({})
 
 	useFocusEffect(
 		useCallback(() => {
 			let active = true
 			void (async () => {
-				const [progress, receive] = await Promise.all([
+				const [progress, receive, stats] = await Promise.all([
 					ensureCourseDefaults(preferences.selectedAlphabet),
 					getReceiveSettings(),
+					getSymbolStatsMap(),
 				])
 				const lesson = getLessonById(progress.currentLessonId)
 				if (!active) {
 					return
 				}
+				const alphabet =
+					preferences.selectedAlphabet === 'LATIN'
+						? 'LATIN'
+						: preferences.selectedAlphabet === 'RU'
+							? 'RU'
+							: receive.alphabet
 				setLessonTitle(lesson?.title ?? 'Урок 1')
 				setKnownCount(progress.knownSymbolIds.length)
 				setHasStarted(progress.completedLessonIds.length > 0)
+				setKnownIds(progress.knownSymbolIds)
+				setStatsMap(stats)
+				setHomeAlphabet(alphabet)
+				setReceiveBase(receive)
 				const lengthLabel =
 					receive.sessionLength === 'infinite'
 						? '∞'
@@ -55,12 +90,52 @@ export function HomeScreen ({ navigation }: Props) {
 				setReceiveSubtitle(
 					`${lengthLabel} вопросов · ${receive.characterWpm} WPM`,
 				)
+				const enough = hasEnoughAdaptiveData(stats, alphabet)
+				setCanTrainWeak(enough)
+				if (enough) {
+					const mastery = listMasteryForAlphabet(stats, alphabet)
+					const weak = listWeakForDisplay(mastery, 3)
+					setWeakPreview(
+						weak
+							.map((item) => getSymbolById(item.symbolId)?.character)
+							.filter((ch): ch is string => Boolean(ch)),
+					)
+				} else {
+					setWeakPreview([])
+				}
 			})()
 			return () => {
 				active = false
 			}
 		}, [preferences.selectedAlphabet]),
 	)
+
+	const startWeakHome = () => {
+		const pool = selectWeakSymbolPool({
+			statsMap,
+			alphabet: homeAlphabet,
+			knownSymbolIds: knownIds,
+		})
+		if (!pool.hasEnoughData) {
+			navigation.navigate('Errors')
+			return
+		}
+		const plan = buildAdaptiveSessionPool({
+			statsMap,
+			alphabet: homeAlphabet,
+			knownSymbolIds: knownIds,
+		})
+		const launch = buildReceiveLaunch({
+			alphabet: homeAlphabet,
+			symbolPool:
+				pool.symbolIds.length > 0 ? pool.symbolIds : plan.symbolIds,
+			weights: plan.weights,
+			sessionLength: 20,
+			baseSettings: { ...receiveBase, symbolPreset: 'weak' },
+			cooldownN: adaptiveLaunchCooldown(),
+		})
+		navigation.navigate('ReceiveSession', launch)
+	}
 
 	return (
 		<Screen contentStyle={styles.content}>
@@ -100,6 +175,26 @@ export function HomeScreen ({ navigation }: Props) {
 					style={styles.continueButton}
 				/>
 			</SurfaceCard>
+
+			{canTrainWeak && weakPreview.length > 0 ? (
+				<SurfaceCard style={styles.continueCard}>
+					<Text
+						style={[styles.continueEyebrow, { color: colors.accent }]}
+					>
+						Нужно повторить
+					</Text>
+					<Text
+						style={[styles.continueTitle, { color: colors.textPrimary }]}
+					>
+						{weakPreview.join(' · ')}
+					</Text>
+					<AppButton
+						label="Тренировать слабые"
+						onPress={startWeakHome}
+						style={styles.continueButton}
+					/>
+				</SurfaceCard>
+			) : null}
 
 			<Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
 				Основные режимы

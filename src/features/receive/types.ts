@@ -9,6 +9,7 @@ export type ReceiveAnswerMode = 'choices' | 'keyboard' | 'paper'
 export type ReceiveSymbolPreset =
 	| 'known'
 	| 'weak'
+	| 'adaptive'
 	| 'all-available'
 	| 'custom'
 

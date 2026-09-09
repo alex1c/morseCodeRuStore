@@ -6,6 +6,7 @@ import type {
 	ReceiveSessionResult,
 	ReceiveSettings,
 } from '@/src/features/receive'
+import type { AdaptiveWeightMap } from '@/src/domain/adaptive'
 
 export type RootStackParamList = {
 	Onboarding: undefined
@@ -26,6 +27,8 @@ export type RootStackParamList = {
 		symbolPool: string[]
 		/** Seeded RNG for deterministic question order in tests / session. */
 		seed: number
+		weights?: AdaptiveWeightMap
+		cooldownN?: number
 	}
 	ReceiveResult: {
 		result: ReceiveSessionResult
@@ -34,6 +37,10 @@ export type RootStackParamList = {
 	}
 	Transmit: undefined
 	Errors: undefined
+	SymbolDetail: {
+		symbolId: string
+		alphabet: 'RU' | 'LATIN'
+	}
 	QuickPractice: undefined
 	Course: undefined
 	Stats: undefined

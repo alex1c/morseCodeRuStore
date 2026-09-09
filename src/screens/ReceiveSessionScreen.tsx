@@ -216,6 +216,8 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 			sessionLength: route.params.settings.sessionLength,
 			seed: route.params.seed,
 			infinitePreviewLength: 80,
+			weights: route.params.weights,
+			cooldownN: route.params.cooldownN,
 		})
 		previousSymbolRef.current = questions[0]?.symbolId ?? null
 		const started = applyMachine({

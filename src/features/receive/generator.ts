@@ -1,5 +1,6 @@
 /**
  * Receive session question generator — independent from lesson curriculum.
+ * Supports optional adaptive weights + recent-history cooldown.
  */
 
 import {
@@ -13,7 +14,16 @@ import type {
 	ReceiveAlphabet,
 	ReceiveQuestion,
 	ReceiveSessionLength,
+	ReceiveSymbolPreset,
 } from './types'
+import {
+	buildAdaptiveSessionPool,
+	DEFAULT_COOLDOWN_N,
+	hasEnoughAdaptiveData,
+	selectWeakSymbolPool,
+	type AdaptiveWeightMap,
+} from '@/src/domain/adaptive'
+import type { SymbolStatsMap } from '@/src/types'
 
 export type GenerateReceiveSessionInput = {
 	alphabet: ReceiveAlphabet
@@ -22,6 +32,15 @@ export type GenerateReceiveSessionInput = {
 	seed: number
 	/** Finite fallback when infinite is requested for preview/tests. */
 	infinitePreviewLength?: number
+	/** Optional adaptive weights keyed by symbol id. */
+	weights?: AdaptiveWeightMap
+	/** Avoid repeating symbols from the last N draws when pool allows. */
+	cooldownN?: number
+	/**
+	 * Soft boost for recently missed symbols (not immediate).
+	 * Applied after cooldown window.
+	 */
+	recentErrorBoost?: Record<string, number>
 }
 
 function resolveLength (length: ReceiveSessionLength, preview = 30): number {
@@ -29,6 +48,76 @@ function resolveLength (length: ReceiveSessionLength, preview = 30): number {
 		return preview
 	}
 	return length
+}
+
+function sanitizeWeights (
+	pool: string[],
+	weights?: AdaptiveWeightMap,
+): AdaptiveWeightMap | null {
+	if (!weights) {
+		return null
+	}
+	const cleaned: AdaptiveWeightMap = {}
+	for (const id of pool) {
+		const value = weights[id]
+		if (Number.isFinite(value) && (value as number) > 0) {
+			cleaned[id] = value as number
+		}
+	}
+	return Object.keys(cleaned).length > 0 ? cleaned : null
+}
+
+/**
+ * Weighted pick with recent-history cooldown.
+ * Falls back to uniform among eligible when weights missing.
+ */
+export function pickWeightedSymbol (
+	pool: string[],
+	recent: string[],
+	random: RandomLike,
+	weights?: AdaptiveWeightMap | null,
+	cooldownN = DEFAULT_COOLDOWN_N,
+): string {
+	if (pool.length === 0) {
+		throw new Error('Cannot pick from empty pool')
+	}
+	if (pool.length === 1) {
+		return pool[0]
+	}
+
+	const avoid = new Set(recent.slice(-Math.max(0, cooldownN)))
+	let candidates = pool.filter((id) => !avoid.has(id))
+	if (candidates.length === 0) {
+		// Tiny pool fallback: only avoid immediate previous if possible.
+		const previous = recent[recent.length - 1]
+		candidates = previous
+			? pool.filter((id) => id !== previous)
+			: [...pool]
+		if (candidates.length === 0) {
+			candidates = [...pool]
+		}
+	}
+
+	const localWeights = sanitizeWeights(candidates, weights ?? undefined)
+	if (!localWeights) {
+		return candidates[Math.floor(random.next() * candidates.length)]
+	}
+
+	let sum = 0
+	for (const id of candidates) {
+		sum += localWeights[id] ?? 0
+	}
+	if (!(sum > 0) || !Number.isFinite(sum)) {
+		return candidates[Math.floor(random.next() * candidates.length)]
+	}
+	let cursor = random.next() * sum
+	for (const id of candidates) {
+		cursor -= localWeights[id] ?? 0
+		if (cursor <= 0) {
+			return id
+		}
+	}
+	return candidates[candidates.length - 1]
 }
 
 /**
@@ -55,11 +144,27 @@ export function generateReceiveQuestions (
 		input.sessionLength,
 		input.infinitePreviewLength ?? 30,
 	)
+	const weights = sanitizeWeights(pool, input.weights)
+	const cooldownN = input.cooldownN ?? DEFAULT_COOLDOWN_N
 	const questions: ReceiveQuestion[] = []
-	let previous: string | null = null
+	const recent: string[] = []
 	for (let i = 0; i < count; i += 1) {
-		const symbolId = pickNextSymbol(pool, previous, random)
-		previous = symbolId
+		const boosted = { ...(weights ?? {}) }
+		if (input.recentErrorBoost) {
+			for (const [id, boost] of Object.entries(input.recentErrorBoost)) {
+				if (boosted[id] != null) {
+					boosted[id] *= 1 + boost
+				}
+			}
+		}
+		const symbolId = pickWeightedSymbol(
+			pool,
+			recent,
+			random,
+			Object.keys(boosted).length > 0 ? boosted : weights,
+			cooldownN,
+		)
+		recent.push(symbolId)
 		questions.push({
 			id: `receive-${i + 1}`,
 			symbolId,
@@ -73,19 +178,19 @@ export function generateReceiveQuestions (
 	return questions
 }
 
+/** Uniform helper kept for infinite append / simple callers. */
 export function pickNextSymbol (
 	pool: string[],
 	previous: string | null,
 	random: RandomLike,
 ): string {
-	if (pool.length === 1) {
-		return pool[0]
-	}
-	const candidates = previous
-		? pool.filter((id) => id !== previous)
-		: pool
-	const source = candidates.length > 0 ? candidates : pool
-	return source[Math.floor(random.next() * source.length)]
+	return pickWeightedSymbol(
+		pool,
+		previous ? [previous] : [],
+		random,
+		null,
+		1,
+	)
 }
 
 /**
@@ -112,10 +217,11 @@ export function expandReceiveOptionPool (
  */
 export function resolveReceiveSymbolPool (input: {
 	alphabet: ReceiveAlphabet
-	preset: 'known' | 'weak' | 'all-available' | 'custom'
+	preset: ReceiveSymbolPreset
 	knownSymbolIds: string[]
 	customSymbolIds: string[]
-}): string[] {
+	statsMap?: SymbolStatsMap
+}): { symbolIds: string[]; hasEnoughData: boolean; weights?: AdaptiveWeightMap } {
 	const courseId = input.alphabet === 'RU' ? 'ru-main' : 'latin-main'
 	const course = getCourseById(courseId)
 	const available =
@@ -129,27 +235,52 @@ export function resolveReceiveSymbolPool (input: {
 	})
 
 	if (input.preset === 'custom') {
-		return input.customSymbolIds.filter((id) =>
+		const ids = input.customSymbolIds.filter((id) =>
 			uniqueAvailable.includes(id) ||
 			getSymbolById(id)?.family === input.alphabet,
 		)
+		return { symbolIds: ids, hasEnoughData: true }
 	}
 	if (input.preset === 'all-available') {
-		return uniqueAvailable
+		return { symbolIds: uniqueAvailable, hasEnoughData: true }
 	}
 	if (input.preset === 'weak') {
-		// Phase 5 placeholder — fall back to known/available.
-		const known = input.knownSymbolIds.filter((id) =>
-			uniqueAvailable.includes(id),
-		)
-		return known.length > 0 ? known : uniqueAvailable.slice(0, 2)
+		const statsMap = input.statsMap ?? {}
+		const weak = selectWeakSymbolPool({
+			statsMap,
+			alphabet: input.alphabet,
+			knownSymbolIds: input.knownSymbolIds,
+		})
+		return {
+			symbolIds: weak.symbolIds,
+			hasEnoughData: weak.hasEnoughData,
+		}
 	}
+	if (input.preset === 'adaptive') {
+		const statsMap = input.statsMap ?? {}
+		const plan = buildAdaptiveSessionPool({
+			statsMap,
+			alphabet: input.alphabet,
+			knownSymbolIds: input.knownSymbolIds,
+		})
+		return {
+			symbolIds: plan.symbolIds,
+			hasEnoughData: plan.hasEnoughData || hasEnoughAdaptiveData(
+				statsMap,
+				input.alphabet,
+			),
+			weights: plan.weights,
+		}
+	}
+
 	const known = input.knownSymbolIds.filter((id) =>
 		uniqueAvailable.includes(id),
 	)
 	if (known.length > 0) {
-		return known
+		return { symbolIds: known, hasEnoughData: true }
 	}
-	// Fresh learner fallback: first two course symbols.
-	return uniqueAvailable.slice(0, 2)
+	return {
+		symbolIds: uniqueAvailable.slice(0, 2),
+		hasEnoughData: true,
+	}
 }

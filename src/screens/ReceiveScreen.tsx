@@ -32,6 +32,7 @@ import type { RootStackParamList } from '@/src/navigation/types'
 import {
 	getLearningProgress,
 	getReceiveSettings,
+	getSymbolStatsMap,
 	saveReceiveSettings,
 } from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
@@ -50,15 +51,17 @@ export function ReceiveScreen ({ navigation }: Props) {
 		DEFAULT_RECEIVE_SETTINGS,
 	)
 	const [knownIds, setKnownIds] = useState<string[]>([])
+	const [statsMap, setStatsMap] = useState<Record<string, import('@/src/types').SymbolStats>>({})
 	const [error, setError] = useState<string | null>(null)
 
 	useFocusEffect(
 		useCallback(() => {
 			let active = true
 			void (async () => {
-				const [stored, progress] = await Promise.all([
+				const [stored, progress, stats] = await Promise.all([
 					getReceiveSettings(),
 					getLearningProgress(),
+					getSymbolStatsMap(),
 				])
 				if (!active) {
 					return
@@ -74,6 +77,7 @@ export function ReceiveScreen ({ navigation }: Props) {
 					alphabet,
 				})
 				setKnownIds(progress.knownSymbolIds)
+				setStatsMap(stats)
 			})()
 			return () => {
 				active = false
@@ -81,16 +85,18 @@ export function ReceiveScreen ({ navigation }: Props) {
 		}, [preferences.selectedAlphabet]),
 	)
 
-	const pool = useMemo(
+	const poolResolution = useMemo(
 		() =>
 			resolveReceiveSymbolPool({
 				alphabet: settings.alphabet,
 				preset: settings.symbolPreset,
 				knownSymbolIds: knownIds,
 				customSymbolIds: settings.customSymbolIds,
+				statsMap,
 			}),
-		[settings, knownIds],
+		[settings, knownIds, statsMap],
 	)
+	const pool = poolResolution.symbolIds
 
 	const availableSymbols = useMemo(
 		() =>
@@ -99,7 +105,7 @@ export function ReceiveScreen ({ navigation }: Props) {
 				preset: 'all-available',
 				knownSymbolIds: knownIds,
 				customSymbolIds: [],
-			}),
+			}).symbolIds,
 		[settings.alphabet, knownIds],
 	)
 
@@ -109,6 +115,16 @@ export function ReceiveScreen ({ navigation }: Props) {
 	}
 
 	const start = async () => {
+		if (
+			(settings.symbolPreset === 'weak' ||
+				settings.symbolPreset === 'adaptive') &&
+			!poolResolution.hasEnoughData
+		) {
+			setError(
+				'Пока недостаточно данных. Пройдите несколько тренировок.',
+			)
+			return
+		}
 		if (pool.length === 0) {
 			setError('Выберите хотя бы один символ для тренировки.')
 			return
@@ -119,6 +135,7 @@ export function ReceiveScreen ({ navigation }: Props) {
 			settings,
 			symbolPool: pool,
 			seed: wallTimeMs() % 1_000_000,
+			weights: poolResolution.weights,
 		})
 	}
 
@@ -183,6 +200,7 @@ export function ReceiveScreen ({ navigation }: Props) {
 					[
 						['known', 'Изученные'],
 						['weak', 'Слабые'],
+						['adaptive', 'Умная тренировка'],
 						['all-available', 'Все доступные'],
 						['custom', 'Свой набор'],
 					] as [ReceiveSymbolPreset, string][]
@@ -193,7 +211,6 @@ export function ReceiveScreen ({ navigation }: Props) {
 						variant={
 							settings.symbolPreset === value ? 'primary' : 'secondary'
 						}
-						disabled={value === 'weak'}
 						onPress={() => {
 							void persist({ ...settings, symbolPreset: value })
 						}}
@@ -201,9 +218,24 @@ export function ReceiveScreen ({ navigation }: Props) {
 					/>
 				))}
 			</View>
-			{settings.symbolPreset === 'weak' ? (
+			{settings.symbolPreset === 'weak' && !poolResolution.hasEnoughData ? (
+				<SurfaceCard>
+					<Text style={[styles.hint, { color: colors.textSecondary }]}>
+						Пока недостаточно данных. Пройдите несколько тренировок.
+					</Text>
+					<AppButton
+						label="Обычная тренировка"
+						variant="secondary"
+						onPress={() => {
+							void persist({ ...settings, symbolPreset: 'known' })
+						}}
+					/>
+				</SurfaceCard>
+			) : null}
+			{settings.symbolPreset === 'adaptive' && !poolResolution.hasEnoughData ? (
 				<Text style={[styles.hint, { color: colors.textTertiary }]}>
-					«Слабые» появятся в Phase 5. Сейчас используйте изученные.
+					Умная тренировка станет точнее после нескольких сессий. Сейчас
+					используется запасной набор изученных символов.
 				</Text>
 			) : null}
 
