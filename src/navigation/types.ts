@@ -3,6 +3,7 @@
  */
 
 import type {
+	ReceiveContentKind,
 	ReceiveSessionResult,
 	ReceiveSettings,
 } from '@/src/features/receive'
@@ -33,11 +34,18 @@ export type RootStackParamList = {
 		seed: number
 		weights?: AdaptiveWeightMap
 		cooldownN?: number
+		/** Forced wrong items for «Повторить ошибки». */
+		retryItems?: {
+			text: string
+			contentKind: Exclude<ReceiveContentKind, 'symbol'>
+			requiredSymbolIds: string[]
+		}[]
 	}
 	ReceiveResult: {
 		result: ReceiveSessionResult
 		settings: ReceiveSettings
 		symbolPool: string[]
+		weights?: AdaptiveWeightMap
 	}
 	Transmit: undefined
 	TransmitSession: {

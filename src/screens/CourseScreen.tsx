@@ -55,7 +55,7 @@ export function CourseScreen ({ navigation }: Props) {
 				Курс обучения
 			</Text>
 			<Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-				Постепенное добавление символов: сначала знакомство, потом слух.
+				Постепенное добавление: буквы → группы и слова → цифры.
 			</Text>
 			<View style={styles.switcher}>
 				<AppButton
@@ -99,6 +99,9 @@ export function CourseScreen ({ navigation }: Props) {
 						<SurfaceCard key={lesson.id} style={styles.lessonCard}>
 							<Text style={[styles.lessonTitle, { color: colors.textPrimary }]}>
 								{lesson.title}
+							</Text>
+							<Text style={[styles.meta, { color: colors.textSecondary }]}>
+								Раздел: {lesson.group}
 							</Text>
 							<Text style={[styles.meta, { color: colors.textSecondary }]}>
 								Новые символы: {newChars}

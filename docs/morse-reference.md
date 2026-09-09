@@ -30,7 +30,7 @@ Optional helper: `farnsworthMultiplierFromSpeeds(characterWpm, effectiveWpm) ≈
 
 | Letter | Decision |
 | --- | --- |
-| **Ё** | Same code as **Е** (`.`). Encode accepts `Ё`; decode of `.` returns canonical **Е**. |
+| **Ё** | Same code as **Е** (`.`). Encode accepts `Ё`; decode of `.` returns canonical **Е**. Listening practice corpus (Phase 7 words/phrases) normalizes to **Е** only — learners are not asked to guess orthography that Morse cannot encode separately. |
 | **Ъ** | Code `--.--` (common modern Russian training tables). Classic telegraph sometimes omitted Ъ — we keep it for a 33-letter learner set. |
 | **Ь** | Code `-..-` (same pattern as Latin **X**). Decode is alphabet-context sensitive. |
 

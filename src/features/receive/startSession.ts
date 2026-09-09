@@ -29,6 +29,8 @@ export function buildReceiveLaunch (input: {
 	answerMode?: ReceiveSettings['answerMode']
 	baseSettings?: Partial<ReceiveSettings>
 }): ReceiveSessionLaunch {
+	// Preserve contentKind (and other Phase 7 fields) from defaults / baseSettings.
+	// Quick Practice callers rely on DEFAULT contentKind: 'symbol'.
 	const settings: ReceiveSettings = {
 		...DEFAULT_RECEIVE_SETTINGS,
 		...(input.baseSettings ?? {}),
@@ -37,6 +39,7 @@ export function buildReceiveLaunch (input: {
 		customSymbolIds: input.symbolPool,
 		sessionLength: input.sessionLength ?? DEFAULT_FOCUSED_SESSION_LENGTH,
 		answerMode: input.answerMode ?? 'choices',
+		contentKind: input.baseSettings?.contentKind ?? 'symbol',
 	}
 	return {
 		settings,

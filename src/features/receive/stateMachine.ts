@@ -3,6 +3,7 @@
  * UI dispatches events; no timers live here.
  */
 
+import type { AlignmentResult } from '@/src/domain'
 import type {
 	ReceiveAnswerRecord,
 	ReceiveMachineState,
@@ -27,7 +28,17 @@ export type ReceiveMachineEvent =
 	| { type: 'PLAY_FINISHED'; now: number }
 	| { type: 'PLAY_FAILED'; error: string; now: number }
 	| { type: 'REPLAY' }
-	| { type: 'ANSWER'; selectedSymbolId: string | null; isCorrect: boolean; now: number }
+	| {
+			type: 'ANSWER'
+			selectedSymbolId: string | null
+			isCorrect: boolean
+			now: number
+			answeredText?: string | null
+			characterMatches?: number
+			characterTotal?: number
+			alignment?: AlignmentResult | null
+			paperSelfCheck?: boolean
+	  }
 	| { type: 'ADVANCE' }
 	| { type: 'FINISH' }
 	| { type: 'CANCEL' }
@@ -127,6 +138,12 @@ export function reduceReceiveMachine (
 				ctx.awaitingAnswerStartedAt == null
 					? null
 					: Math.max(0, event.now - ctx.awaitingAnswerStartedAt)
+			// Symbol-mode callers may omit text/alignment fields — fill defaults.
+			const expectedText = question.text ?? ''
+			const characterTotal =
+				event.characterTotal ?? 1
+			const characterMatches =
+				event.characterMatches ?? (event.isCorrect ? 1 : 0)
 			const record: ReceiveAnswerRecord = {
 				questionId: question.id,
 				expectedSymbolId: question.symbolId,
@@ -134,6 +151,16 @@ export function reduceReceiveMachine (
 				correct: event.isCorrect,
 				responseTimeMs,
 				replayCount: ctx.currentReplayCount,
+				expectedText,
+				answeredText:
+					event.answeredText !== undefined
+						? event.answeredText
+						: null,
+				characterMatches,
+				characterTotal,
+				alignment:
+					event.alignment !== undefined ? event.alignment : null,
+				paperSelfCheck: event.paperSelfCheck === true,
 			}
 			return {
 				...ctx,

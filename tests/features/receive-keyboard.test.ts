@@ -4,6 +4,7 @@
 
 import {
 	normalizeKeyboardAnswer,
+	normalizeTextAnswer,
 	resolveKeyboardAnswerSymbolId,
 } from '@/src/features/receive'
 
@@ -16,6 +17,14 @@ describe('receive keyboard normalization', () => {
 	test('handles russian unicode', () => {
 		expect(normalizeKeyboardAnswer('а', 'RU')).toBe('А')
 		expect(normalizeKeyboardAnswer('ё', 'RU')).toBe('Ё')
+	})
+
+	test('normalizeTextAnswer collapses spaces and maps Ё→Е', () => {
+		expect(normalizeTextAnswer('  при  вет  ', 'RU', { allowSpaces: true })).toBe('ПРИ ВЕТ')
+		expect(normalizeTextAnswer('ёлка', 'RU')).toBe('ЕЛКА')
+		expect(normalizeTextAnswer('hello', 'RU')).toBeNull()
+		expect(normalizeTextAnswer('ПРИВЕТ', 'LATIN')).toBeNull()
+		expect(normalizeTextAnswer('12 34', 'RU', { allowDigits: true, allowSpaces: true })).toBe('12 34')
 	})
 
 	test('rejects wrong script and multi-char', () => {

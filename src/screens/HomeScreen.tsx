@@ -93,7 +93,7 @@ export function HomeScreen ({ navigation }: Props) {
 						? '∞'
 						: String(receive.sessionLength)
 				setReceiveSubtitle(
-					`${lengthLabel} вопросов · ${receive.characterWpm} WPM`,
+					`Буквы, слова и группы · ${lengthLabel} · ${receive.characterWpm} WPM`,
 				)
 				setTransmitSubtitle(
 					`${transmit.sessionLength} символов · ${transmit.characterWpm} WPM`,

@@ -20,7 +20,12 @@ export type Lesson = {
 		review: number
 		miniCheck: number
 	}
-	group: 'Начало' | 'Основные буквы' | 'Продолжение'
+	group:
+		| 'Начало'
+		| 'Основные буквы'
+		| 'Продолжение'
+		| 'Группы и слова'
+		| 'Цифры'
 }
 
 export type Course = {

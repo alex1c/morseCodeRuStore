@@ -16,7 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReceiveResult'>
 
 export function ReceiveResultScreen ({ navigation, route }: Props) {
 	const { colors } = useTheme()
-	const { result, settings, symbolPool } = route.params
+	const { result, settings, symbolPool, weights } = route.params
 
 	const strong = result.strongSymbolIds
 		.map((id) => getSymbolById(id)?.character ?? '?')
@@ -35,6 +35,61 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 		})
 		.join('\n')
 
+	const showCharacterAccuracy =
+		result.characterTotal > 0 &&
+		(settings.contentKind !== 'symbol' || result.characterTotal > 1)
+
+	const multiWrongItems = result.wrongItems.filter(
+		(item) => item.contentKind !== 'symbol',
+	)
+	const symbolWrongIds = result.wrongItems
+		.filter((item) => item.contentKind === 'symbol')
+		.flatMap((item) => item.requiredSymbolIds)
+
+	const retryErrors = () => {
+		if (multiWrongItems.length > 0) {
+			const count = multiWrongItems.length
+			const sessionLength =
+				count <= 5 ? 5 : count <= 10 ? 10 : 20
+			navigation.replace('ReceiveSession', {
+				settings: {
+					...settings,
+					contentKind: multiWrongItems[0].contentKind,
+					sessionLength,
+				},
+				symbolPool,
+				seed: wallTimeMs() % 1_000_000,
+				weights,
+				retryItems: multiWrongItems.map((item) => ({
+					text: item.text,
+					contentKind: item.contentKind as Exclude<
+						typeof item.contentKind,
+						'symbol'
+					>,
+					requiredSymbolIds: item.requiredSymbolIds,
+				})),
+			})
+			return
+		}
+		if (symbolWrongIds.length > 0) {
+			const unique = [...new Set(symbolWrongIds)]
+			const sessionLength =
+				unique.length <= 10 ? 10 : unique.length <= 20 ? 20 : 50
+			navigation.replace('ReceiveSession', {
+				settings: {
+					...settings,
+					contentKind: 'symbol',
+					symbolPreset: 'custom',
+					customSymbolIds: unique,
+					sessionLength,
+				},
+				symbolPool: unique,
+				seed: wallTimeMs() % 1_000_000,
+				weights,
+			})
+		}
+	}
+
 	return (
 		<Screen>
 			<Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -47,6 +102,13 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 				<Text style={[styles.percent, { color: colors.primary }]}>
 					{result.accuracyPercent}%
 				</Text>
+				{showCharacterAccuracy ? (
+					<Text style={[styles.meta, { color: colors.textSecondary }]}>
+						По символам: {result.characterAccuracyPercent}%
+						{' '}
+						({result.characterCorrect}/{result.characterTotal})
+					</Text>
+				) : null}
 				<Text style={[styles.meta, { color: colors.textSecondary }]}>
 					Среднее время ответа:{' '}
 					{result.averageResponseTimeMs == null
@@ -73,6 +135,12 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 			</SurfaceCard>
 
 			<View style={styles.actions}>
+				{result.wrongItems.length > 0 ? (
+					<AppButton
+						label="Повторить ошибки"
+						onPress={retryErrors}
+					/>
+				) : null}
 				<AppButton
 					label="Ещё раз"
 					onPress={() => {
@@ -80,6 +148,7 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 							settings,
 							symbolPool,
 							seed: wallTimeMs() % 1_000_000,
+							weights,
 						})
 					}}
 				/>

@@ -1,8 +1,9 @@
 /**
  * Receive session — state-machine driven listening practice.
+ * Supports symbol | group | word | phrase | digits content kinds.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
 	Alert,
 	StyleSheet,
@@ -21,6 +22,8 @@ import {
 	generateQuestionOptions,
 	getSymbolById,
 	sequenceToPattern,
+	symbolAttemptsFromAlignment,
+	type AlignmentResult,
 	type MorseElement,
 } from '@/src/domain'
 import { createSymbolPlaybackController } from '@/src/features/playback'
@@ -33,17 +36,20 @@ import {
 	RECEIVE_WPM_MAX,
 	RECEIVE_WPM_MIN,
 	RECEIVE_WPM_STEP,
+	buildInfiniteSymbolQuestion,
 	buildReceiveSessionResult,
 	canAnswer,
 	canReplay,
 	createInitialReceiveContext,
 	currentQuestion,
+	evaluateTextAnswer,
 	expandReceiveOptionPool,
-	generateReceiveQuestions,
 	pickNextSymbol,
 	reduceReceiveMachine,
 	resolveKeyboardAnswerSymbolId,
+	resolveSessionQuestions,
 	type ReceiveMachineContext,
+	type ReceiveQuestion,
 	type ReceiveSettings,
 } from '@/src/features/receive'
 import type { RootStackParamList } from '@/src/navigation/types'
@@ -67,6 +73,51 @@ function describeMorseCode (code: MorseElement[]): string {
 		.join(' ')
 }
 
+function isMultiCharQuestion (question: ReceiveQuestion): boolean {
+	return question.contentKind !== 'symbol'
+}
+
+function allowDigitsForQuestion (question: ReceiveQuestion, settings: ReceiveSettings): boolean {
+	return (
+		question.contentKind === 'digits' ||
+		(question.contentKind === 'group' && settings.includeMixedDigits)
+	)
+}
+
+/** Visual diff chips from alignment steps. */
+function AlignmentDiff ({
+	alignment,
+	colors,
+}: {
+	alignment: AlignmentResult
+	colors: { textPrimary: string; success: string; danger: string; textTertiary: string }
+}) {
+	return (
+		<View style={styles.diffRow}>
+			{alignment.steps.map((step, index) => {
+				const label =
+					step.operation === 'extra'
+						? step.answerChar ?? '·'
+						: step.targetChar ?? '·'
+				const color =
+					step.operation === 'match'
+						? colors.success
+						: step.operation === 'extra'
+							? colors.textTertiary
+							: colors.danger
+				return (
+					<Text
+						key={`${index}-${step.operation}-${label}`}
+						style={[styles.diffChar, { color }]}
+					>
+						{label === ' ' ? '␣' : label}
+					</Text>
+				)
+			})}
+		</View>
+	)
+}
+
 export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const { colors } = useTheme()
 	const [settings, setSettings] = useState<ReceiveSettings>(
@@ -78,6 +129,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const [keyboardValue, setKeyboardValue] = useState('')
 	const [paperRevealed, setPaperRevealed] = useState(false)
 	const [activeElement, setActiveElement] = useState(-1)
+	const [activeCharacterIndex, setActiveCharacterIndex] = useState(-1)
 	const playbackRef = useRef(createSymbolPlaybackController())
 	const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const randomRef = useRef(createSeededRandom(route.params.seed))
@@ -86,6 +138,26 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const ctxRef = useRef(ctx)
 	const startedRef = useRef(false)
 	const playGenerationRef = useRef(0)
+
+	// Resolve session once from route params (avoids setState-in-effect for blockers).
+	const resolvedSession = useMemo(
+		() =>
+			resolveSessionQuestions({
+				settings: route.params.settings,
+				symbolPool: route.params.symbolPool,
+				seed: route.params.seed,
+				weights: route.params.weights,
+				cooldownN: route.params.cooldownN,
+				retryItems: route.params.retryItems,
+				infinitePreviewLength: 80,
+			}),
+		[route.params],
+	)
+	const startError =
+		resolvedSession.blockedReason ??
+		(resolvedSession.questions.length === 0
+			? 'Не удалось собрать сессию. Измените настройки.'
+			: null)
 
 	useEffect(() => {
 		settingsRef.current = settings
@@ -115,9 +187,15 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const resetAnswerUi = useCallback(() => {
 		setKeyboardValue('')
 		setPaperRevealed(false)
+		setActiveCharacterIndex(-1)
+		setActiveElement(-1)
 	}, [])
 
-	const playQuestion = useCallback(async (symbolId: string, asReplay: boolean) => {
+	const playQuestion = useCallback(async (
+		question: ReceiveQuestion,
+		asReplay: boolean,
+		playbackOverride?: { farnsworthMultiplier: number },
+	) => {
 		clearAutoAdvance()
 		const generation = playGenerationRef.current + 1
 		playGenerationRef.current = generation
@@ -125,16 +203,28 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 			applyMachine({ type: 'REPLAY' })
 		}
 		applyMachine({ type: 'PLAY_STARTED' })
-		const result = await playbackRef.current.playSymbol(
-			symbolId,
-			{
-				characterWpm: settingsRef.current.characterWpm,
-				farnsworthMultiplier: settingsRef.current.farnsworthMultiplier,
-				frequencyHz: settingsRef.current.toneFrequencyHz,
-			},
-			setActiveElement,
-		)
-		// Ignore stale completions after stop/cancel or newer play request.
+
+		const timing = {
+			characterWpm: settingsRef.current.characterWpm,
+			farnsworthMultiplier:
+				playbackOverride?.farnsworthMultiplier ??
+				settingsRef.current.farnsworthMultiplier,
+			frequencyHz: settingsRef.current.toneFrequencyHz,
+		}
+
+		const result = isMultiCharQuestion(question)
+			? await playbackRef.current.playText(
+				question.text,
+				settingsRef.current.alphabet,
+				timing,
+				setActiveCharacterIndex,
+			)
+			: await playbackRef.current.playSymbol(
+				question.symbolId,
+				timing,
+				setActiveElement,
+			)
+
 		if (playGenerationRef.current !== generation) {
 			return
 		}
@@ -167,7 +257,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 			settingsRef.current.alphabet,
 			route.params.symbolPool,
 		)
-		const nextQuestion = {
+		const nextQuestion = buildInfiniteSymbolQuestion({
 			id: `receive-inf-${prev.questions.length + 1}`,
 			symbolId: nextSymbol,
 			optionSymbolIds: generateQuestionOptions(
@@ -175,7 +265,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 				optionPool,
 				randomRef.current,
 			),
-		}
+		})
 		const next = {
 			...prev,
 			questions: [...prev.questions, nextQuestion],
@@ -195,7 +285,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		if (!question) {
 			return
 		}
-		void playQuestion(question.symbolId, false)
+		void playQuestion(question, false)
 	}, [
 		appendInfiniteQuestionIfNeeded,
 		applyMachine,
@@ -204,37 +294,39 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	])
 
 	useEffect(() => {
-		if (startedRef.current) {
+		if (startedRef.current || startError) {
 			return
 		}
 		startedRef.current = true
 		const playback = playbackRef.current
-		const infinite = route.params.settings.sessionLength === 'infinite'
-		const questions = generateReceiveQuestions({
-			alphabet: route.params.settings.alphabet,
-			symbolPool: route.params.symbolPool,
-			sessionLength: route.params.settings.sessionLength,
-			seed: route.params.seed,
-			infinitePreviewLength: 80,
-			weights: route.params.weights,
-			cooldownN: route.params.cooldownN,
-		})
-		previousSymbolRef.current = questions[0]?.symbolId ?? null
+		const infinite =
+			route.params.settings.sessionLength === 'infinite' &&
+			route.params.settings.contentKind === 'symbol'
+		previousSymbolRef.current =
+			resolvedSession.questions[0]?.symbolId ?? null
 		const started = applyMachine({
 			type: 'START',
-			questions,
+			questions: resolvedSession.questions,
 			infinite,
 		})
 		const first = currentQuestion(started)
 		if (first) {
-			void playQuestion(first.symbolId, false)
+			void playQuestion(first, false)
 		}
 		return () => {
 			clearAutoAdvance()
 			playGenerationRef.current += 1
 			void playback.stop()
 		}
-	}, [applyMachine, clearAutoAdvance, playQuestion, route.params])
+	}, [
+		applyMachine,
+		clearAutoAdvance,
+		playQuestion,
+		resolvedSession.questions,
+		route.params.settings.contentKind,
+		route.params.settings.sessionLength,
+		startError,
+	])
 
 	useEffect(() => {
 		if (ctx.state !== 'feedbackCorrect') {
@@ -246,19 +338,21 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		}, RECEIVE_FEEDBACK_CORRECT_MS)
 		return clearAutoAdvance
 	}, [advanceToNextQuestion, clearAutoAdvance, ctx.state])
+
 	useEffect(() => {
 		if (ctx.state !== 'finished' && ctx.state !== 'cancelled') {
 			return
 		}
 		playGenerationRef.current += 1
 		void playbackRef.current.stop()
-		const result = buildReceiveSessionResult(ctx.answered)
+		const result = buildReceiveSessionResult(ctx.answered, ctx.questions)
 		navigation.replace('ReceiveResult', {
 			result,
 			settings,
 			symbolPool: route.params.symbolPool,
+			weights: route.params.weights,
 		})
-	}, [ctx.state, ctx.answered, navigation, settings, route.params.symbolPool])
+	}, [ctx.state, ctx.answered, ctx.questions, navigation, settings, route.params.symbolPool, route.params.weights])
 
 	useFocusEffect(
 		useCallback(() => {
@@ -273,6 +367,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 
 	const question = currentQuestion(ctx)
 	const expected = question ? getSymbolById(question.symbolId) : null
+	const lastAnswer = ctx.answered[ctx.answered.length - 1] ?? null
 	const answered = ctx.answered.length
 	const correctCount = ctx.answered.filter((item) => item.correct).length
 	const accuracy =
@@ -280,14 +375,60 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const totalLabel =
 		settings.sessionLength === 'infinite'
 			? '∞'
-			: String(settings.sessionLength)
+			: String(
+				route.params.retryItems?.length
+					? route.params.retryItems.length
+					: settings.sessionLength,
+			)
 	const playing = ctx.state === 'playing' || ctx.state === 'replaying'
 	const controlsLocked = playing
+	const multiChar = question ? isMultiCharQuestion(question) : false
 
-	const submitChoice = async (
-		selectedSymbolId: string | null,
-		isCorrect: boolean,
-	) => {
+	const recordAttemptsForAnswer = async (input: {
+		question: ReceiveQuestion
+		isCorrect: boolean
+		selectedSymbolId: string | null
+		responseTimeMs: number | null
+		alignment: AlignmentResult | null
+		paperSelfCheck: boolean
+	}) => {
+		if (input.paperSelfCheck) {
+			// Paper self-check: do not invent per-symbol stats.
+			return
+		}
+		if (input.alignment && isMultiCharQuestion(input.question)) {
+			const attempts = symbolAttemptsFromAlignment(
+				input.alignment,
+				settings.alphabet,
+				allowDigitsForQuestion(input.question, settings),
+			)
+			for (const attempt of attempts) {
+				await recordSymbolAttempt({
+					expectedSymbolId: attempt.expectedSymbolId,
+					isCorrect: attempt.isCorrect,
+					responseTimeMs: null,
+					answerSymbolId: attempt.answerSymbolId ?? undefined,
+				})
+			}
+			return
+		}
+		await recordSymbolAttempt({
+			expectedSymbolId: input.question.symbolId,
+			isCorrect: input.isCorrect,
+			responseTimeMs: input.responseTimeMs,
+			answerSymbolId: input.selectedSymbolId ?? undefined,
+		})
+	}
+
+	const submitAnswer = async (input: {
+		selectedSymbolId: string | null
+		isCorrect: boolean
+		answeredText?: string | null
+		characterMatches?: number
+		characterTotal?: number
+		alignment?: AlignmentResult | null
+		paperSelfCheck?: boolean
+	}) => {
 		const snapshot = ctxRef.current
 		const current = currentQuestion(snapshot)
 		if (!canAnswer(snapshot) || !current) {
@@ -297,30 +438,98 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		await playbackRef.current.stop()
 		const now = wallTimeMs()
 		const responseTimeMs =
-			settings.answerMode === 'paper'
+			settings.answerMode === 'paper' || input.paperSelfCheck
 				? null
 				: snapshot.awaitingAnswerStartedAt == null
 					? null
 					: Math.max(0, now - snapshot.awaitingAnswerStartedAt)
+
+		const characterTotal =
+			input.characterTotal ??
+			(isMultiCharQuestion(current)
+				? current.requiredSymbolIds.length
+				: 1)
+		const characterMatches =
+			input.characterMatches ?? (input.isCorrect ? characterTotal : 0)
+
 		applyMachine({
 			type: 'ANSWER',
-			selectedSymbolId,
-			isCorrect,
+			selectedSymbolId: input.selectedSymbolId,
+			isCorrect: input.isCorrect,
 			now,
+			answeredText: input.answeredText ?? null,
+			characterMatches,
+			characterTotal,
+			alignment: input.alignment ?? null,
+			paperSelfCheck: input.paperSelfCheck === true,
 		})
-		await recordSymbolAttempt({
-			expectedSymbolId: current.symbolId,
-			isCorrect,
+
+		await recordAttemptsForAnswer({
+			question: current,
+			isCorrect: input.isCorrect,
+			selectedSymbolId: input.selectedSymbolId,
 			responseTimeMs,
-			answerSymbolId: selectedSymbolId ?? undefined,
+			alignment: input.alignment ?? null,
+			paperSelfCheck: input.paperSelfCheck === true,
 		})
-		if (isCorrect) {
+
+		if (input.isCorrect) {
 			void Haptics.selectionAsync()
 		} else {
 			void Haptics.notificationAsync(
 				Haptics.NotificationFeedbackType.Warning,
 			)
 		}
+	}
+
+	const submitKeyboard = () => {
+		const current = currentQuestion(ctxRef.current)
+		if (!current || !canAnswer(ctxRef.current)) {
+			return
+		}
+		if (isMultiCharQuestion(current)) {
+			const evaluated = evaluateTextAnswer(
+				current.text,
+				keyboardValue,
+				settings.alphabet,
+				allowDigitsForQuestion(current, settings),
+			)
+			void submitAnswer({
+				selectedSymbolId: evaluated.itemCorrect
+					? current.symbolId
+					: null,
+				isCorrect: evaluated.itemCorrect,
+				answeredText: evaluated.normalizedAnswer,
+				characterMatches: evaluated.alignment.matches,
+				characterTotal: evaluated.alignment.targetLength,
+				alignment: evaluated.alignment,
+			})
+			return
+		}
+		const resolved = resolveKeyboardAnswerSymbolId(
+			keyboardValue,
+			settings.alphabet,
+			route.params.symbolPool,
+		)
+		void submitAnswer({
+			selectedSymbolId: resolved.symbolId,
+			isCorrect: resolved.symbolId === current.symbolId,
+			answeredText: resolved.character,
+			characterMatches: resolved.symbolId === current.symbolId ? 1 : 0,
+			characterTotal: 1,
+		})
+	}
+
+	const playBreakdown = () => {
+		const current = currentQuestion(ctxRef.current)
+		if (!current) {
+			return
+		}
+		const bumped = Math.max(
+			settingsRef.current.farnsworthMultiplier * 2,
+			3,
+		)
+		void playQuestion(current, true, { farnsworthMultiplier: bumped })
 	}
 
 	const onBackAttempt = useCallback(() => {
@@ -381,6 +590,20 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		await saveReceiveSettings(next)
 	}
 
+	if (startError) {
+		return (
+			<Screen contentStyle={styles.content}>
+				<Text style={[styles.status, { color: colors.danger }]}>
+					{startError}
+				</Text>
+				<AppButton
+					label="Назад к настройкам"
+					onPress={() => navigation.goBack()}
+				/>
+			</Screen>
+		)
+	}
+
 	return (
 		<Screen contentStyle={styles.content}>
 			<View style={styles.headerRow}>
@@ -397,7 +620,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 				<Text style={[styles.status, { color: colors.textPrimary }]}>
 					{statusLabel}
 				</Text>
-				{playing ? (
+				{playing && !multiChar ? (
 					<Text
 						style={[styles.hint, { color: colors.textSecondary }]}
 						accessibilityLabel={
@@ -408,6 +631,29 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 					>
 						{activeElement >= 0 ? '●' : '○'} сигнал
 					</Text>
+				) : null}
+				{playing && multiChar && question ? (
+					<View style={styles.breakdownRow}>
+						{question.requiredSymbolIds.map((id, index) => {
+							const ch = getSymbolById(id)?.character ?? '?'
+							const active = activeCharacterIndex === index
+							return (
+								<Text
+									key={`${id}-${index}`}
+									style={[
+										styles.breakdownChar,
+										{
+											color: active
+												? colors.primary
+												: colors.textSecondary,
+										},
+									]}
+								>
+									{ch}
+								</Text>
+							)
+						})}
+					</View>
 				) : null}
 				{ctx.lastError ? (
 					<Text style={[styles.error, { color: colors.danger }]}>
@@ -426,7 +672,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 							return
 						}
 						void playQuestion(
-							current.symbolId,
+							current,
 							canReplay(ctxRef.current),
 						)
 					}}
@@ -434,7 +680,9 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 				/>
 			</SurfaceCard>
 
-			{settings.answerMode === 'choices' && question ? (
+			{settings.answerMode === 'choices' &&
+			question &&
+			!multiChar ? (
 				<View style={styles.options}>
 					{question.optionSymbolIds.map((id) => {
 						const symbol = getSymbolById(id)
@@ -452,7 +700,14 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 								variant={showCorrect ? 'primary' : 'secondary'}
 								disabled={!canAnswer(ctx)}
 								onPress={() => {
-									void submitChoice(id, id === question.symbolId)
+									void submitAnswer({
+										selectedSymbolId: id,
+										isCorrect: id === question.symbolId,
+										answeredText: symbol.character,
+										characterMatches:
+											id === question.symbolId ? 1 : 0,
+										characterTotal: 1,
+									})
 								}}
 								accessibilityLabel={`Вариант ответа ${symbol.character}${selected ? ', выбран' : ''}`}
 								style={styles.option}
@@ -472,7 +727,15 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 						autoFocus
 						editable={canAnswer(ctx)}
 						placeholder={
-							settings.alphabet === 'RU' ? 'Буква' : 'Letter'
+							multiChar
+								? settings.contentKind === 'phrase'
+									? 'Текст'
+									: settings.contentKind === 'digits'
+										? 'Цифры'
+										: 'Ответ'
+								: settings.alphabet === 'RU'
+									? 'Буква'
+									: 'Letter'
 						}
 						placeholderTextColor={colors.textTertiary}
 						style={[
@@ -483,41 +746,13 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 								backgroundColor: colors.surfaceMuted,
 							},
 						]}
-						onSubmitEditing={() => {
-							const current = currentQuestion(ctxRef.current)
-							if (!current || !canAnswer(ctxRef.current)) {
-								return
-							}
-							const resolved = resolveKeyboardAnswerSymbolId(
-								keyboardValue,
-								settings.alphabet,
-								route.params.symbolPool,
-							)
-							void submitChoice(
-								resolved.symbolId,
-								resolved.symbolId === current.symbolId,
-							)
-						}}
-						accessibilityLabel="Поле ввода услышанного символа"
+						onSubmitEditing={submitKeyboard}
+						accessibilityLabel="Поле ввода услышанного ответа"
 					/>
 					<AppButton
 						label="Ответить"
 						disabled={!canAnswer(ctx)}
-						onPress={() => {
-							const current = currentQuestion(ctxRef.current)
-							if (!current) {
-								return
-							}
-							const resolved = resolveKeyboardAnswerSymbolId(
-								keyboardValue,
-								settings.alphabet,
-								route.params.symbolPool,
-							)
-							void submitChoice(
-								resolved.symbolId,
-								resolved.symbolId === current.symbolId,
-							)
-						}}
+						onPress={submitKeyboard}
 					/>
 				</SurfaceCard>
 			) : null}
@@ -534,37 +769,50 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 						<>
 							<Text
 								style={[styles.status, { color: colors.textPrimary }]}
-								accessibilityLabel={`Ответ ${expected?.character ?? '?'}, код ${expected ? describeMorseCode(expected.code) : ''}`}
+								accessibilityLabel={`Ответ ${question?.text ?? expected?.character ?? '?'}`}
 							>
-								{expected?.character ?? '?'}
+								{question?.text ?? expected?.character ?? '?'}
 							</Text>
-							<Text
-								style={[styles.hint, { color: colors.textSecondary }]}
-								accessibilityLabel={
-									expected
-										? `Код Морзе: ${describeMorseCode(expected.code)}`
-										: undefined
-								}
-							>
-								{expected ? sequenceToPattern(expected.code) : ''}
-							</Text>
+							{!multiChar && expected ? (
+								<Text
+									style={[styles.hint, { color: colors.textSecondary }]}
+									accessibilityLabel={`Код Морзе: ${describeMorseCode(expected.code)}`}
+								>
+									{sequenceToPattern(expected.code)}
+								</Text>
+							) : null}
 							<View style={styles.row}>
 								<AppButton
-									label="Правильно"
+									label="Всё правильно"
 									style={styles.flex}
 									onPress={() => {
-										void submitChoice(
-											question?.symbolId ?? null,
-											true,
-										)
+										void submitAnswer({
+											selectedSymbolId:
+												question?.symbolId ?? null,
+											isCorrect: true,
+											answeredText: question?.text ?? null,
+											characterMatches:
+												question?.requiredSymbolIds.length ?? 1,
+											characterTotal:
+												question?.requiredSymbolIds.length ?? 1,
+											paperSelfCheck: true,
+										})
 									}}
 								/>
 								<AppButton
-									label="Ошибка"
+									label="Есть ошибки"
 									variant="secondary"
 									style={styles.flex}
 									onPress={() => {
-										void submitChoice(null, false)
+										void submitAnswer({
+											selectedSymbolId: null,
+											isCorrect: false,
+											answeredText: null,
+											characterMatches: 0,
+											characterTotal:
+												question?.requiredSymbolIds.length ?? 1,
+											paperSelfCheck: true,
+										})
 									}}
 								/>
 							</View>
@@ -573,39 +821,67 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 				</SurfaceCard>
 			) : null}
 
-			{ctx.state === 'feedbackWrong' && expected ? (
-				<SurfaceCard>
+			{ctx.state === 'feedbackWrong' && question ? (
+				<SurfaceCard style={styles.feedbackCard}>
 					<Text style={[styles.status, { color: colors.textPrimary }]}>
-						Правильный ответ: {expected.character}
+						Правильный ответ: {question.text}
 					</Text>
-					<Text
-						style={[styles.hint, { color: colors.textSecondary }]}
-						accessibilityLabel={`Код Морзе: ${describeMorseCode(expected.code)}`}
-					>
-						{sequenceToPattern(expected.code)}
-					</Text>
+					{lastAnswer?.answeredText ? (
+						<Text style={[styles.hint, { color: colors.textSecondary }]}>
+							Ваш ответ: {lastAnswer.answeredText}
+						</Text>
+					) : null}
+					{lastAnswer?.alignment ? (
+						<AlignmentDiff
+							alignment={lastAnswer.alignment}
+							colors={colors}
+						/>
+					) : !multiChar && expected ? (
+						<Text
+							style={[styles.hint, { color: colors.textSecondary }]}
+							accessibilityLabel={`Код Морзе: ${describeMorseCode(expected.code)}`}
+						>
+							{sequenceToPattern(expected.code)}
+						</Text>
+					) : null}
 					<View style={styles.row}>
 						<AppButton
 							label="Прослушать ещё раз"
 							variant="secondary"
 							style={styles.flex}
 							onPress={() => {
-								void playQuestion(expected.id, true)
+								void playQuestion(question, true)
 							}}
 						/>
-						<AppButton
-							label="Дальше"
-							style={styles.flex}
-							onPress={advanceToNextQuestion}
-						/>
+						{multiChar ? (
+							<AppButton
+								label="Разобрать по буквам"
+								variant="secondary"
+								style={styles.flex}
+								onPress={playBreakdown}
+							/>
+						) : null}
 					</View>
+					<AppButton
+						label="Дальше"
+						onPress={advanceToNextQuestion}
+					/>
 				</SurfaceCard>
 			) : null}
 
-			{ctx.state === 'feedbackCorrect' && expected ? (
-				<Text style={[styles.hint, { color: colors.success }]}>
-					{expected.character}
-				</Text>
+			{ctx.state === 'feedbackCorrect' && question ? (
+				<SurfaceCard style={styles.feedbackCard}>
+					<Text style={[styles.hint, { color: colors.success }]}>
+						{question.text}
+					</Text>
+					{multiChar ? (
+						<AppButton
+							label="Разобрать сигнал"
+							variant="secondary"
+							onPress={playBreakdown}
+						/>
+					) : null}
+				</SurfaceCard>
 			) : null}
 
 			<SurfaceCard style={styles.liveControls}>
@@ -700,7 +976,8 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 						}}
 					/>
 				</View>
-				{settings.sessionLength === 'infinite' ? (
+				{settings.sessionLength === 'infinite' &&
+				settings.contentKind === 'symbol' ? (
 					<AppButton
 						label="Завершить сессию"
 						variant="secondary"
@@ -749,6 +1026,9 @@ const styles = StyleSheet.create({
 	keyboardCard: {
 		gap: spacing.sm,
 	},
+	feedbackCard: {
+		gap: spacing.sm,
+	},
 	input: {
 		minHeight: 52,
 		borderWidth: 1,
@@ -773,5 +1053,22 @@ const styles = StyleSheet.create({
 	},
 	chip: {
 		minWidth: 72,
+	},
+	diffRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 4,
+	},
+	diffChar: {
+		...typography.bodyStrong,
+		fontSize: 20,
+	},
+	breakdownRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 6,
+	},
+	breakdownChar: {
+		...typography.title,
 	},
 })

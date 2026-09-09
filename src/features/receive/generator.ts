@@ -165,9 +165,13 @@ export function generateReceiveQuestions (
 			cooldownN,
 		)
 		recent.push(symbolId)
+		const symbol = getSymbolById(symbolId)
 		questions.push({
 			id: `receive-${i + 1}`,
+			contentKind: 'symbol',
 			symbolId,
+			text: symbol?.character ?? '',
+			requiredSymbolIds: [symbolId],
 			optionSymbolIds: generateQuestionOptions(
 				symbolId,
 				optionPool,

@@ -136,6 +136,16 @@ export async function ensureStorageMigrated (): Promise<void> {
 			await writeJson(STORAGE_KEYS.transmitStats, {})
 		}
 	}
+	if (previous < 5) {
+		// Phase 7: merge new Receive content-kind fields with defaults.
+		const existing = await readJson<Partial<ReceiveSettings>>(
+			STORAGE_KEYS.receiveSettings,
+		)
+		await writeJson(STORAGE_KEYS.receiveSettings, {
+			...DEFAULT_RECEIVE_SETTINGS,
+			...(existing ?? {}),
+		})
+	}
 	await writeJson(STORAGE_KEYS.meta, {
 		schemaVersion: STORAGE_SCHEMA_VERSION,
 	})

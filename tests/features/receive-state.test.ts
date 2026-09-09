@@ -13,12 +13,18 @@ import {
 const sampleQuestions = [
 	{
 		id: 'q1',
+		contentKind: 'symbol' as const,
 		symbolId: 'ru-a',
+		text: 'А',
+		requiredSymbolIds: ['ru-a'],
 		optionSymbolIds: ['ru-a', 'ru-t', 'ru-n', 'ru-o'],
 	},
 	{
 		id: 'q2',
+		contentKind: 'symbol' as const,
 		symbolId: 'ru-t',
+		text: 'Т',
+		requiredSymbolIds: ['ru-t'],
 		optionSymbolIds: ['ru-t', 'ru-a', 'ru-n', 'ru-o'],
 	},
 ]
@@ -55,6 +61,9 @@ describe('receive state machine', () => {
 			now: 1000,
 		})
 		expect(ctx.state).toBe('feedbackCorrect')
+		expect(ctx.answered[0].expectedText).toBe('А')
+		expect(ctx.answered[0].characterMatches).toBe(1)
+		expect(ctx.answered[0].characterTotal).toBe(1)
 		ctx = reduceReceiveMachine(ctx, { type: 'ADVANCE' })
 		expect(ctx.state).toBe('preparing')
 		expect(ctx.index).toBe(1)

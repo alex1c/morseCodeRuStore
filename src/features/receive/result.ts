@@ -2,10 +2,15 @@
  * Build Receive session result summary from answered records.
  */
 
-import type { ReceiveAnswerRecord, ReceiveSessionResult } from './types'
+import type {
+	ReceiveAnswerRecord,
+	ReceiveQuestion,
+	ReceiveSessionResult,
+} from './types'
 
 export function buildReceiveSessionResult (
 	answered: ReceiveAnswerRecord[],
+	questions: ReceiveQuestion[] = [],
 ): ReceiveSessionResult {
 	const total = answered.length
 	const correct = answered.filter((item) => item.correct).length
@@ -25,8 +30,16 @@ export function buildReceiveSessionResult (
 	const correctBySymbol = new Map<string, number>()
 	const errorCounts = new Map<string, number>()
 	const confusion = new Map<string, number>()
+	const questionById = new Map(questions.map((q) => [q.id, q]))
+
+	let characterCorrect = 0
+	let characterTotal = 0
+	const wrongItems: ReceiveSessionResult['wrongItems'] = []
 
 	for (const item of answered) {
+		characterCorrect += item.characterMatches ?? 0
+		characterTotal += item.characterTotal ?? 0
+
 		if (item.correct) {
 			correctBySymbol.set(
 				item.expectedSymbolId,
@@ -42,12 +55,25 @@ export function buildReceiveSessionResult (
 			const key = `${item.expectedSymbolId}|${item.selectedSymbolId}`
 			confusion.set(key, (confusion.get(key) ?? 0) + 1)
 		}
+
+		const question = questionById.get(item.questionId)
+		wrongItems.push({
+			text: item.expectedText || question?.text || item.expectedSymbolId,
+			contentKind: question?.contentKind ?? 'symbol',
+			requiredSymbolIds:
+				question?.requiredSymbolIds ?? [item.expectedSymbolId],
+		})
 	}
 
 	const strongSymbolIds = [...correctBySymbol.entries()]
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, 3)
 		.map(([symbolId]) => symbolId)
+
+	const characterAccuracyPercent =
+		characterTotal <= 0
+			? 0
+			: Math.round((characterCorrect / characterTotal) * 100)
 
 	return {
 		correct,
@@ -64,5 +90,9 @@ export function buildReceiveSessionResult (
 				const [expectedSymbolId, answerSymbolId] = key.split('|')
 				return { expectedSymbolId, answerSymbolId, count }
 			}),
+		characterCorrect,
+		characterTotal,
+		characterAccuracyPercent,
+		wrongItems,
 	}
 }
