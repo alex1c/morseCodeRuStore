@@ -33,6 +33,7 @@ import { useAppBootstrap } from '@/src/features/bootstrap/AppBootstrap'
 import {
 	getReceiveSettings,
 	getSymbolStatsMap,
+	getTransmitSettings,
 } from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
 import type { SymbolStatsMap } from '@/src/types'
@@ -48,6 +49,9 @@ export function HomeScreen ({ navigation }: Props) {
 	const [receiveSubtitle, setReceiveSubtitle] = useState(
 		'20 вопросов · 12 WPM',
 	)
+	const [transmitSubtitle, setTransmitSubtitle] = useState(
+		'Тренировка ключа',
+	)
 	const [weakPreview, setWeakPreview] = useState<string[]>([])
 	const [canTrainWeak, setCanTrainWeak] = useState(false)
 	const [homeAlphabet, setHomeAlphabet] = useState<'RU' | 'LATIN'>('RU')
@@ -61,10 +65,11 @@ export function HomeScreen ({ navigation }: Props) {
 		useCallback(() => {
 			let active = true
 			void (async () => {
-				const [progress, receive, stats] = await Promise.all([
+				const [progress, receive, stats, transmit] = await Promise.all([
 					ensureCourseDefaults(preferences.selectedAlphabet),
 					getReceiveSettings(),
 					getSymbolStatsMap(),
+					getTransmitSettings(),
 				])
 				const lesson = getLessonById(progress.currentLessonId)
 				if (!active) {
@@ -89,6 +94,9 @@ export function HomeScreen ({ navigation }: Props) {
 						: String(receive.sessionLength)
 				setReceiveSubtitle(
 					`${lengthLabel} вопросов · ${receive.characterWpm} WPM`,
+				)
+				setTransmitSubtitle(
+					`${transmit.sessionLength} символов · ${transmit.characterWpm} WPM`,
 				)
 				const enough = hasEnoughAdaptiveData(stats, alphabet)
 				setCanTrainWeak(enough)
@@ -207,7 +215,7 @@ export function HomeScreen ({ navigation }: Props) {
 				/>
 				<ModeCard
 					title="Передача"
-					subtitle="Точки и тире на ключе"
+					subtitle={transmitSubtitle}
 					onPress={() => navigation.navigate('Transmit')}
 				/>
 			</View>

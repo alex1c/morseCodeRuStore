@@ -35,6 +35,10 @@ export type MorseAudioService = {
 		timeline: MorseTimeline,
 		options: Pick<MorseAudioPlayOptions, 'frequencyHz'>,
 	) => Promise<void>
+	/** Start continuous sidetone for straight-key hold (stops playback first). */
+	startTone: (frequencyHz: number) => Promise<void>
+	/** Stop continuous sidetone without affecting future playback generation. */
+	stopTone: () => Promise<void>
 	/** Whether a playback session is currently active. */
 	isPlaying: () => boolean
 }

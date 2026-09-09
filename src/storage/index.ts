@@ -24,6 +24,14 @@ import {
 	DEFAULT_RECEIVE_SETTINGS,
 	type ReceiveSettings,
 } from '@/src/features/receive'
+import {
+	DEFAULT_TRANSMIT_SETTINGS,
+	applyTransmitAttempt,
+	createEmptyTransmitSymbolStats,
+	type TransmitSettings,
+	type TransmitSymbolStats,
+	type TransmitSymbolStatsMap,
+} from '@/src/features/transmit'
 import { STORAGE_KEYS, STORAGE_SCHEMA_VERSION } from './keys'
 
 type MetaState = {
@@ -32,11 +40,13 @@ type MetaState = {
 
 let migrated = false
 let symbolStatsQueue: Promise<unknown> = Promise.resolve()
+let transmitStatsQueue: Promise<unknown> = Promise.resolve()
 
 /** Test helper — allow re-running migration logic. */
 export function resetStorageMigrationFlagForTests (): void {
 	migrated = false
 	symbolStatsQueue = Promise.resolve()
+	transmitStatsQueue = Promise.resolve()
 }
 
 async function readJson<T> (key: string): Promise<T | null> {
@@ -110,6 +120,21 @@ export async function ensureStorageMigrated (): Promise<void> {
 			...DEFAULT_RECEIVE_SETTINGS,
 			...(existing ?? {}),
 		})
+	}
+	if (previous < 4) {
+		const existingSettings = await readJson<Partial<TransmitSettings>>(
+			STORAGE_KEYS.transmitSettings,
+		)
+		await writeJson(STORAGE_KEYS.transmitSettings, {
+			...DEFAULT_TRANSMIT_SETTINGS,
+			...(existingSettings ?? {}),
+		})
+		const existingStats = await readJson<TransmitSymbolStatsMap>(
+			STORAGE_KEYS.transmitStats,
+		)
+		if (!existingStats) {
+			await writeJson(STORAGE_KEYS.transmitStats, {})
+		}
 	}
 	await writeJson(STORAGE_KEYS.meta, {
 		schemaVersion: STORAGE_SCHEMA_VERSION,
@@ -302,6 +327,72 @@ export async function saveReceiveSettings (
 	await writeJson(STORAGE_KEYS.receiveSettings, settings)
 }
 
+export async function getTransmitSettings (): Promise<TransmitSettings> {
+	await ensureStorageMigrated()
+	const stored = await readJson<Partial<TransmitSettings>>(
+		STORAGE_KEYS.transmitSettings,
+	)
+	return {
+		...DEFAULT_TRANSMIT_SETTINGS,
+		...(stored ?? {}),
+		customSymbolIds: stored?.customSymbolIds ?? [],
+	}
+}
+
+export async function saveTransmitSettings (
+	settings: TransmitSettings,
+): Promise<void> {
+	await ensureStorageMigrated()
+	await writeJson(STORAGE_KEYS.transmitSettings, settings)
+}
+
+export async function getTransmitStatsMap (): Promise<TransmitSymbolStatsMap> {
+	await ensureStorageMigrated()
+	const stored = await readJson<TransmitSymbolStatsMap>(
+		STORAGE_KEYS.transmitStats,
+	)
+	return stored ?? {}
+}
+
+export async function saveTransmitStatsMap (
+	stats: TransmitSymbolStatsMap,
+): Promise<void> {
+	await ensureStorageMigrated()
+	await writeJson(STORAGE_KEYS.transmitStats, stats)
+}
+
+/**
+ * Serialized transmit SymbolStats update — separate from Receive stats.
+ */
+export async function recordTransmitAttempt (input: {
+	symbolId: string
+	isCorrect: boolean
+	hintUsed: boolean
+	averageQualityScore: number
+	practicedAt?: string
+}): Promise<TransmitSymbolStats> {
+	const run = transmitStatsQueue.then(async () => {
+		await ensureStorageMigrated()
+		const map = await getTransmitStatsMap()
+		const previous =
+			map[input.symbolId] ?? createEmptyTransmitSymbolStats(input.symbolId)
+		const next = applyTransmitAttempt(previous, {
+			isCorrect: input.isCorrect,
+			hintUsed: input.hintUsed,
+			averageQualityScore: input.averageQualityScore,
+			practicedAt: input.practicedAt ?? new Date().toISOString(),
+		})
+		map[input.symbolId] = next
+		await saveTransmitStatsMap(map)
+		return next
+	})
+	transmitStatsQueue = run.then(
+		() => undefined,
+		() => undefined,
+	)
+	return run
+}
+
 /**
  * Clear all Morse trainer keys — used in tests / debug reset.
  */
@@ -312,9 +403,12 @@ export async function clearAllStorageForTests (): Promise<void> {
 		STORAGE_KEYS.progress,
 		STORAGE_KEYS.symbolStats,
 		STORAGE_KEYS.receiveSettings,
+		STORAGE_KEYS.transmitSettings,
+		STORAGE_KEYS.transmitStats,
 	])
 	migrated = false
 	symbolStatsQueue = Promise.resolve()
+	transmitStatsQueue = Promise.resolve()
 }
 
 export { STORAGE_KEYS, STORAGE_SCHEMA_VERSION } from './keys'

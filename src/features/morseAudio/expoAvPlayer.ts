@@ -1,5 +1,5 @@
 /**
- * Expo-AV Morse player — race-safe sequential timeline playback.
+ * Expo-AV Morse player — race-safe sequential timeline playback + live sidetone.
  */
 
 import { Audio } from 'expo-av'
@@ -16,12 +16,17 @@ import type {
 	MorseAudioPlayOptions,
 	MorseAudioService,
 } from './types'
-import { buildToneWavDataUri } from './wavTone'
+import {
+	buildSeamlessToneLoopWavDataUri,
+	buildToneWavDataUri,
+} from './wavTone'
 
 export function createExpoAvMorseAudioService (): MorseAudioService {
 	let generation = 0
 	let playing = false
 	let activeSound: Audio.Sound | null = null
+	let liveToneSound: Audio.Sound | null = null
+	let liveToneActive = false
 	let cancelFlag = { cancelled: false }
 
 	const unloadSound = async () => {
@@ -42,10 +47,30 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 		}
 	}
 
+	const unloadLiveTone = async () => {
+		liveToneActive = false
+		if (!liveToneSound) {
+			return
+		}
+		const sound = liveToneSound
+		liveToneSound = null
+		try {
+			await sound.stopAsync()
+		} catch {
+			// ignore
+		}
+		try {
+			await sound.unloadAsync()
+		} catch {
+			// ignore
+		}
+	}
+
 	const stop = async () => {
 		generation += 1
 		cancelFlag.cancelled = true
 		playing = false
+		await unloadLiveTone()
 		await unloadSound()
 	}
 
@@ -104,10 +129,51 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 		}
 	}
 
+	const startTone = async (frequencyHz: number) => {
+		// Stop any sequence playback before live key tone.
+		await stop()
+		const myGeneration = generation
+		try {
+			await Audio.setAudioModeAsync({
+				playsInSilentModeIOS: true,
+				allowsRecordingIOS: false,
+				staysActiveInBackground: false,
+				shouldDuckAndroid: true,
+				playThroughEarpieceAndroid: false,
+			})
+		} catch {
+			// best-effort
+		}
+		if (myGeneration !== generation) {
+			return
+		}
+		const uri = buildSeamlessToneLoopWavDataUri(frequencyHz)
+		const { sound } = await Audio.Sound.createAsync(
+			{ uri },
+			{ shouldPlay: true, isLooping: true, volume: 1 },
+		)
+		if (myGeneration !== generation) {
+			await sound.unloadAsync()
+			return
+		}
+		liveToneSound = sound
+		liveToneActive = true
+		playing = true
+	}
+
+	const stopTone = async () => {
+		await unloadLiveTone()
+		if (!activeSound) {
+			playing = false
+		}
+	}
+
 	return {
 		stop,
-		isPlaying: () => playing,
+		isPlaying: () => playing || liveToneActive,
 		playTimeline,
+		startTone,
+		stopTone,
 		async playCode (code: MorseElement[], options) {
 			const timing = createTimingModel({
 				characterWpm: options.characterWpm,

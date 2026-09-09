@@ -7,6 +7,10 @@ import type {
 	ReceiveSettings,
 } from '@/src/features/receive'
 import type { AdaptiveWeightMap } from '@/src/domain/adaptive'
+import type {
+	TransmitSessionResult,
+	TransmitSettings,
+} from '@/src/features/transmit'
 
 export type RootStackParamList = {
 	Onboarding: undefined
@@ -36,6 +40,17 @@ export type RootStackParamList = {
 		symbolPool: string[]
 	}
 	Transmit: undefined
+	TransmitSession: {
+		settings: TransmitSettings
+		symbolPool: string[]
+		seed: number
+		weights?: Record<string, number>
+	}
+	TransmitResult: {
+		result: TransmitSessionResult
+		settings: TransmitSettings
+		symbolPool: string[]
+	}
 	Errors: undefined
 	SymbolDetail: {
 		symbolId: string

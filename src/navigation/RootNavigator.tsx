@@ -22,6 +22,8 @@ import { StatsScreen } from '@/src/screens/StatsScreen'
 import { SymbolDetailScreen } from '@/src/screens/SymbolDetailScreen'
 import { TranslatorScreen } from '@/src/screens/TranslatorScreen'
 import { TransmitScreen } from '@/src/screens/TransmitScreen'
+import { TransmitSessionScreen } from '@/src/screens/TransmitSessionScreen'
+import { TransmitResultScreen } from '@/src/screens/TransmitResultScreen'
 import { useTheme } from '@/src/theme'
 import type { RootStackParamList } from './types'
 
@@ -99,6 +101,16 @@ export function RootNavigator ({
 					name="Transmit"
 					component={TransmitScreen}
 					options={{ title: 'Передача' }}
+				/>
+				<Stack.Screen
+					name="TransmitSession"
+					component={TransmitSessionScreen}
+					options={{ title: 'Ключ' }}
+				/>
+				<Stack.Screen
+					name="TransmitResult"
+					component={TransmitResultScreen}
+					options={{ title: 'Результат' }}
 				/>
 				<Stack.Screen
 					name="Errors"

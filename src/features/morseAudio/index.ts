@@ -7,4 +7,4 @@ export {
 	getMorseAudioService,
 	setMorseAudioServiceForTests,
 } from './expoAvPlayer'
-export { buildToneWavDataUri } from './wavTone'
+export { buildToneWavDataUri, buildSeamlessToneLoopWavDataUri } from './wavTone'
