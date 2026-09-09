@@ -17,8 +17,9 @@ export type UserPreferences = {
 	/** Target words-per-minute for character timing. */
 	targetWpm: number
 	/**
-	 * Farnsworth / extra spacing multiplier (>1 slows inter-element gaps).
-	 * Kept for Phase 2+ audio timing without changing the model.
+	 * Farnsworth spacing multiplier applied to letter/word gaps only.
+	 * Character elements (dot/dash/intra) use targetWpm unchanged.
+	 * Domain: createTimingModel({ characterWpm, farnsworthMultiplier }).
 	 */
 	farnsworthMultiplier: number
 	soundEnabled: boolean

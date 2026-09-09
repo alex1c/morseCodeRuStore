@@ -1,15 +1,21 @@
 /**
- * Morse domain model foundation for Phase 2 Morse Engine.
- * No audio playback here — only types, catalog sample data, and pure helpers.
+ * Core Morse domain types.
+ * Timing and audio live elsewhere — this file is data-shape only (+ small pure helpers).
  */
 
-/** Alphabet families supported by the trainer. */
-export type AlphabetType = 'RU' | 'LATIN' | 'DIGIT' | 'PUNCTUATION'
+/** Alphabet / catalog family for a symbol row. */
+export type AlphabetFamily = 'RU' | 'LATIN' | 'DIGIT' | 'PUNCTUATION'
 
-/** Dot / dash building blocks of a Morse sequence. */
-export type MorseElement = '.' | '-'
+/**
+ * Encode/decode context chosen by the learner.
+ * Digits and punctuation are available in every context.
+ */
+export type AlphabetContext = 'RU' | 'LATIN' | 'BOTH'
 
-/** Category used for lesson grouping and filters. */
+/** Strict Morse signal element (never a free-form string). */
+export type MorseElement = 'dot' | 'dash'
+
+/** Category used for filters, lessons, and future expansion. */
 export type MorseCategory =
 	| 'letter'
 	| 'digit'
@@ -17,56 +23,41 @@ export type MorseCategory =
 	| 'prosign'
 
 /**
- * Canonical Morse symbol entity.
- * Visual mnemonic cards (Phase 3) will attach by symbolId without changing this core.
+ * Canonical Morse symbol.
+ * Mnemonics (Phase 3) reference `id` / `visualMnemonicId` — never duplicate `code`.
  */
 export type MorseSymbol = {
 	/** Stable id, e.g. "ru-zh" or "latin-a". */
 	id: string
-	/** Display character (upper-case for letters). */
+	/** Display character (letters upper-case). */
 	character: string
-	/** Ordered Morse elements strictly matching the official code. */
-	sequence: MorseElement[]
-	alphabet: AlphabetType
+	/** Ordered Morse elements (canonical code). */
+	code: MorseElement[]
+	family: AlphabetFamily
 	category: MorseCategory
-	/** Optional lesson membership for curriculum ordering. */
-	lessonIds: string[]
-	/** Sort order within alphabet / lesson. */
-	order: number
+	/**
+	 * Curriculum / display ordering hook within the family.
+	 * Lower values appear earlier in learning lists.
+	 */
+	learningOrder: number
 	/** Soft-disable without deleting catalog rows. */
 	enabled: boolean
 	/**
-	 * Optional Phase 3 hook: id of a visual mnemonic card asset/definition.
-	 * Kept nullable so Phase 1–2 never depend on artwork.
+	 * Phase 3 visual mnemonic card id. Null until artwork exists.
+	 * Must always resolve against this symbol's `code`, never a private copy.
 	 */
 	visualMnemonicId: string | null
+	/**
+	 * When true, encode accepts this character but decode of its pattern
+	 * prefers another canonical symbol (used for Ё → Е).
+	 */
+	decodeAliasOfId?: string
 }
 
-/**
- * Encode sequence as the classic Morse string (e.g. "·−" / ".-").
- * Uses ASCII . and - for persistence and tests.
- */
-export function sequenceToPattern (sequence: MorseElement[]): string {
-	return sequence.join('')
-}
+/** @deprecated Prefer AlphabetFamily — kept for Phase 1 import compatibility. */
+export type AlphabetType = AlphabetFamily
 
-/**
- * Parse a Morse pattern string into elements. Invalid chars are ignored.
- */
-export function patternToSequence (pattern: string): MorseElement[] {
-	const elements: MorseElement[] = []
-	for (const char of pattern) {
-		if (char === '.' || char === '-') {
-			elements.push(char)
-		}
-	}
-	return elements
-}
-
-/**
- * Accuracy helper shared by stats UI and adaptive trainer later.
- * Returns 0 when there are no attempts (avoids NaN).
- */
+/** Accuracy helper — 0 when there are no attempts (avoids NaN). */
 export function calculateAccuracyPercent (
 	correct: number,
 	attempts: number,
@@ -74,13 +65,12 @@ export function calculateAccuracyPercent (
 	if (attempts <= 0) {
 		return 0
 	}
-	const ratio = correct / attempts
-	return Math.round(ratio * 1000) / 10
+	return Math.round((correct / attempts) * 1000) / 10
 }
 
 /**
  * Record a practice attempt into SymbolStats-shaped fields (pure).
- * When incorrect and answerSymbolId is set, increments confusionMap.
+ * confusionMap enables pairs like Ж → Ф in Phase 5.
  */
 export function applyAttemptToStats (
 	previous: {
@@ -96,7 +86,6 @@ export function applyAttemptToStats (
 		isCorrect: boolean
 		responseTimeMs: number
 		practicedAt: string
-		/** Symbol the user chose when wrong — enables Ж→Ф confusion tracking. */
 		answerSymbolId?: string
 	},
 ) {

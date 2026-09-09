@@ -1,5 +1,5 @@
 /**
- * Domain root — Phase 1 only exposes Morse boundary.
+ * Domain root — Morse Engine boundary.
  */
 
 export * from './morse'

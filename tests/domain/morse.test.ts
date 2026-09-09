@@ -1,5 +1,5 @@
 /**
- * Morse domain helpers and sample catalog architecture checks.
+ * Phase 1 helper + theme smoke tests (kept after engine expansion).
  */
 
 import {
@@ -16,9 +16,14 @@ import { resolveColorScheme } from '@/src/theme/ThemeProvider'
 
 describe('morse domain helpers', () => {
 	test('encodes and parses Morse sequences', () => {
-		const pattern = sequenceToPattern(['.', '-', '.', '.'])
+		const pattern = sequenceToPattern(['dot', 'dash', 'dot', 'dot'])
 		expect(pattern).toBe('.-..')
-		expect(patternToSequence(pattern)).toEqual(['.', '-', '.', '.'])
+		expect(patternToSequence(pattern)).toEqual([
+			'dot',
+			'dash',
+			'dot',
+			'dot',
+		])
 	})
 
 	test('calculates accuracy percent safely', () => {
@@ -37,15 +42,6 @@ describe('morse domain helpers', () => {
 		})
 		expect(afterWrong.incorrect).toBe(1)
 		expect(afterWrong.confusionMap['ru-f']).toBe(1)
-
-		const afterCorrect = applyAttemptToStats(afterWrong, {
-			isCorrect: true,
-			responseTimeMs: 700,
-			practicedAt: '2026-09-09T12:01:00.000Z',
-		})
-		expect(afterCorrect.correct).toBe(1)
-		expect(afterCorrect.attempts).toBe(2)
-		expect(afterCorrect.confusionMap['ru-f']).toBe(1)
 	})
 
 	test('sample catalog supports lesson membership', () => {

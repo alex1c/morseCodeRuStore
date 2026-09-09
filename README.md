@@ -2,9 +2,12 @@
 
 Android-first обучающий тренажёр азбуки Морзе (ForestMusic / RuStore).
 
-## Phase 1
+## Phase 1–2
 
-Foundation: identity, navigation, theme, AsyncStorage progress contracts, Morse domain boundary, onboarding, Home.
+- Phase 1: identity, navigation, theme, AsyncStorage, onboarding, Home
+- Phase 2: Morse Engine (catalog, encode/decode, timing, Farnsworth, timeline, audio boundary)
+
+See `docs/morse-reference.md` for contested Russian letters and timing math.
 
 ## Scripts
 
@@ -23,6 +26,7 @@ npm run lint
 - TypeScript strict
 - React Navigation
 - AsyncStorage
+- expo-av (procedural WAV tones)
 - Jest / ESLint
 
 ## Package
