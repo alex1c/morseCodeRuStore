@@ -11,4 +11,4 @@ export const STORAGE_KEYS = {
 } as const
 
 /** Current local storage schema version. */
-export const STORAGE_SCHEMA_VERSION = 1 as const
+export const STORAGE_SCHEMA_VERSION = 2 as const

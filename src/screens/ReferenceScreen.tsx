@@ -1,240 +1,126 @@
-/**
- * Temporary Morse Engine lab (Phase 2).
- * Replaces the Phase 1 Reference placeholder until the real Phase 9 handbook.
- */
-
 import { useEffect, useMemo, useState } from 'react'
-import {
-	Pressable,
-	StyleSheet,
-	Text,
-	View,
-} from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Screen } from '@/src/components/Screen'
+import { VisualMnemonicCard } from '@/src/components/mnemonic/VisualMnemonicCard'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
-	createTimingModel,
-	encodeTextToPatternString,
 	listLatinLetters,
 	listRussianLetters,
 	sequenceToPattern,
-	type AlphabetContext,
 	type MorseSymbol,
-} from '@/src/domain/morse'
+} from '@/src/domain'
 import { getMorseAudioService } from '@/src/features/morseAudio'
+import { getLearningProgress, getUserPreferences } from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
-
-const WPM_OPTIONS = [10, 12, 15, 20] as const
-const FARNSWORTH_OPTIONS = [1, 1.5, 2, 3] as const
 
 export function ReferenceScreen () {
 	const { colors } = useTheme()
-	const [alphabet, setAlphabet] = useState<Exclude<AlphabetContext, 'BOTH'>>(
-		'RU',
-	)
-	const [wpm, setWpm] = useState<(typeof WPM_OPTIONS)[number]>(15)
-	const [farnsworth, setFarnsworth] =
-		useState<(typeof FARNSWORTH_OPTIONS)[number]>(1.5)
+	const [alphabet, setAlphabet] = useState<'RU' | 'LATIN'>('RU')
+	const [known, setKnown] = useState<string[]>([])
 	const [selectedId, setSelectedId] = useState<string | null>(null)
 	const [busy, setBusy] = useState(false)
 
-	const symbols = useMemo(
-		() =>
-			(alphabet === 'RU' ? listRussianLetters() : listLatinLetters()).filter(
-				(symbol) => !symbol.decodeAliasOfId,
-			),
-		[alphabet],
-	)
-
-	const selected: MorseSymbol | undefined = symbols.find(
-		(symbol) => symbol.id === selectedId,
-	) ?? symbols[0]
-
-	const timing = createTimingModel({
-		characterWpm: wpm,
-		farnsworthMultiplier: farnsworth,
-	})
-
 	useEffect(() => {
+		void (async () => {
+			const [prefs, progress] = await Promise.all([
+				getUserPreferences(),
+				getLearningProgress(),
+			])
+			setAlphabet(prefs.selectedAlphabet === 'LATIN' ? 'LATIN' : 'RU')
+			setKnown(progress.knownSymbolIds)
+		})()
 		return () => {
 			void getMorseAudioService().stop()
 		}
 	}, [])
 
-	const handlePlaySymbol = async () => {
-		if (!selected || busy) {
-			return
-		}
-		setBusy(true)
-		try {
-			await getMorseAudioService().playCode(selected.code, {
-				frequencyHz: 600,
-				characterWpm: wpm,
-				farnsworthMultiplier: farnsworth,
-			})
-		} finally {
-			setBusy(false)
-		}
-	}
-
-	const sampleWord = alphabet === 'RU' ? 'ПРИВЕТ' : 'SOS'
-	const samplePattern = encodeTextToPatternString(sampleWord, alphabet)
-
-	const handlePlaySample = async () => {
-		if (busy) {
-			return
-		}
-		setBusy(true)
-		try {
-			await getMorseAudioService().playText(sampleWord, {
-				alphabet,
-				frequencyHz: 600,
-				characterWpm: wpm,
-				farnsworthMultiplier: farnsworth,
-			})
-		} finally {
-			setBusy(false)
-		}
-	}
+	const symbols = useMemo(
+		() => (alphabet === 'RU' ? listRussianLetters() : listLatinLetters()),
+		[alphabet],
+	)
+	const selected: MorseSymbol | undefined = symbols.find(
+		(symbol) => symbol.id === selectedId,
+	) ?? symbols[0]
 
 	return (
 		<Screen contentStyle={styles.content}>
-			<Text style={[styles.kicker, { color: colors.accent }]}>
-				Движок Морзе · временная лаборатория
-			</Text>
 			<Text style={[styles.title, { color: colors.textPrimary }]}>
-				Проверка каталога и тайминга
+				Визуальная азбука
 			</Text>
-
-			<Text style={[styles.label, { color: colors.textSecondary }]}>
-				Алфавит
-			</Text>
-			<View style={styles.row}>
-				{(['RU', 'LATIN'] as const).map((value) => (
-					<AppButton
-						key={value}
-						label={value === 'RU' ? 'Русский' : 'Latin'}
-						variant={alphabet === value ? 'primary' : 'secondary'}
-						onPress={() => {
-							setAlphabet(value)
-							setSelectedId(null)
-						}}
-						style={styles.flexBtn}
-					/>
-				))}
-			</View>
-
-			<Text style={[styles.label, { color: colors.textSecondary }]}>
-				WPM
+			<Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+				Слушайте и просматривайте символы. Неразблокированные отмечены отдельно.
 			</Text>
 			<View style={styles.row}>
-				{WPM_OPTIONS.map((value) => (
-					<AppButton
-						key={value}
-						label={String(value)}
-						variant={wpm === value ? 'primary' : 'secondary'}
-						onPress={() => setWpm(value)}
-						style={styles.flexBtn}
-					/>
-				))}
-			</View>
-
-			<Text style={[styles.label, { color: colors.textSecondary }]}>
-				Farnsworth ×
-			</Text>
-			<View style={styles.row}>
-				{FARNSWORTH_OPTIONS.map((value) => (
-					<AppButton
-						key={value}
-						label={String(value)}
-						variant={farnsworth === value ? 'primary' : 'secondary'}
-						onPress={() => setFarnsworth(value)}
-						style={styles.flexBtn}
-					/>
-				))}
-			</View>
-
-			<SurfaceCard style={styles.card}>
-				<Text style={[styles.meta, { color: colors.textSecondary }]}>
-					unit {timing.unitMs.toFixed(1)} ms · dot {timing.dotMs} · dash{' '}
-					{timing.dashMs} · letter {timing.letterGapMs} · word{' '}
-					{timing.wordGapMs}
-				</Text>
-				<Text style={[styles.symbolChar, { color: colors.textPrimary }]}>
-					{selected?.character ?? '—'}
-				</Text>
-				<Text style={[styles.pattern, { color: colors.primary }]}>
-					{selected ? sequenceToPattern(selected.code) : ''}
-				</Text>
 				<AppButton
-					label={busy ? 'Играет…' : 'Слушать символ'}
-					onPress={() => {
-						void handlePlaySymbol()
-					}}
-					disabled={busy || !selected}
+					label="Русский"
+					variant={alphabet === 'RU' ? 'primary' : 'secondary'}
+					onPress={() => setAlphabet('RU')}
+					style={styles.flex}
 				/>
 				<AppButton
-					label={`Стоп`}
-					variant="secondary"
-					onPress={() => {
-						void getMorseAudioService().stop()
-						setBusy(false)
-					}}
-					style={styles.stopBtn}
+					label="Latin"
+					variant={alphabet === 'LATIN' ? 'primary' : 'secondary'}
+					onPress={() => setAlphabet('LATIN')}
+					style={styles.flex}
 				/>
-			</SurfaceCard>
-
-			<Text style={[styles.label, { color: colors.textSecondary }]}>
-				Символы
-			</Text>
-			<View style={styles.chips}>
+			</View>
+			<View style={styles.grid}>
 				{symbols.map((symbol) => {
-					const active = symbol.id === selected?.id
+					const isKnown = known.includes(symbol.id)
 					return (
 						<Pressable
 							key={symbol.id}
 							onPress={() => setSelectedId(symbol.id)}
 							style={[
-								styles.chip,
+								styles.cell,
 								{
-									backgroundColor: active
-										? colors.primaryMuted
-										: colors.surface,
-									borderColor: active
-										? colors.primary
-										: colors.border,
+									backgroundColor: isKnown
+										? colors.surface
+										: colors.surfaceMuted,
+									borderColor:
+										selected?.id === symbol.id
+											? colors.primary
+											: colors.border,
 								},
 							]}
 						>
-							<Text
-								style={{
-									color: colors.textPrimary,
-									...typography.bodyStrong,
-								}}
-							>
+							<Text style={[styles.cellChar, { color: colors.textPrimary }]}>
 								{symbol.character}
+							</Text>
+							<Text style={[styles.cellMeta, { color: colors.textTertiary }]}>
+								{isKnown ? 'изучен' : 'доступен позже'}
 							</Text>
 						</Pressable>
 					)
 				})}
 			</View>
 
-			<SurfaceCard style={styles.card}>
-				<Text style={[styles.meta, { color: colors.textSecondary }]}>
-					Пример: {sampleWord}
-				</Text>
-				<Text style={[styles.pattern, { color: colors.textPrimary }]}>
-					{samplePattern}
-				</Text>
-				<AppButton
-					label={busy ? 'Играет…' : 'Слушать пример'}
-					onPress={() => {
-						void handlePlaySample()
-					}}
-					disabled={busy}
-				/>
-			</SurfaceCard>
+			{selected ? (
+				<SurfaceCard style={styles.detail}>
+					<Text style={[styles.detailTitle, { color: colors.textPrimary }]}>
+						{selected.character} · {sequenceToPattern(selected.code)}
+					</Text>
+					<VisualMnemonicCard symbolId={selected.id} />
+					<AppButton
+						label={busy ? 'Играет…' : 'Прослушать символ'}
+						disabled={busy}
+						onPress={async () => {
+							setBusy(true)
+							try {
+								await getMorseAudioService().playCode(selected.code, {
+									characterWpm: 15,
+									farnsworthMultiplier: 1.5,
+									frequencyHz: 600,
+								})
+							} finally {
+								setBusy(false)
+							}
+						}}
+						accessibilityLabel="Прослушать символ в визуальной азбуке"
+					/>
+				</SurfaceCard>
+			) : null}
 		</Screen>
 	)
 }
@@ -243,60 +129,47 @@ const styles = StyleSheet.create({
 	content: {
 		paddingBottom: spacing.xxl,
 	},
-	kicker: {
-		...typography.label,
-		marginBottom: spacing.xs,
-	},
 	title: {
 		...typography.title,
-		marginBottom: spacing.lg,
-	},
-	label: {
-		...typography.label,
 		marginBottom: spacing.xs,
-		marginTop: spacing.sm,
+	},
+	subtitle: {
+		...typography.body,
+		marginBottom: spacing.sm,
 	},
 	row: {
 		flexDirection: 'row',
-		gap: spacing.xs,
-		marginBottom: spacing.sm,
-	},
-	flexBtn: {
-		flex: 1,
-		paddingHorizontal: spacing.sm,
-	},
-	card: {
-		marginTop: spacing.md,
 		gap: spacing.sm,
 	},
-	meta: {
-		...typography.caption,
+	flex: {
+		flex: 1,
 	},
-	symbolChar: {
-		fontSize: 40,
-		lineHeight: 48,
-		fontWeight: '700',
-	},
-	pattern: {
-		...typography.subtitle,
-		fontVariant: ['tabular-nums'],
-		marginBottom: spacing.xs,
-	},
-	stopBtn: {
-		marginTop: spacing.xs,
-	},
-	chips: {
+	grid: {
+		marginTop: spacing.md,
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: spacing.xs,
 	},
-	chip: {
-		minWidth: 44,
-		minHeight: 44,
-		borderRadius: 10,
+	cell: {
+		width: '23%',
+		minHeight: 72,
 		borderWidth: 1,
+		borderRadius: 10,
 		alignItems: 'center',
 		justifyContent: 'center',
-		paddingHorizontal: spacing.sm,
+	},
+	cellChar: {
+		...typography.bodyStrong,
+	},
+	cellMeta: {
+		fontSize: 10,
+		lineHeight: 14,
+	},
+	detail: {
+		marginTop: spacing.md,
+		gap: spacing.sm,
+	},
+	detailTitle: {
+		...typography.subtitle,
 	},
 })

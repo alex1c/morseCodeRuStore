@@ -42,8 +42,10 @@ describe('persistence foundation', () => {
 
 	test('returns default learning progress without prior data', async () => {
 		const progress = await getLearningProgress()
-		expect(progress.currentLessonId).toBe('lesson-1')
-		expect(progress.unlockedLessonIds).toEqual(['lesson-1'])
+		expect(progress.currentLessonId).toBe('ru-lesson-1')
+		expect(progress.currentCourseId).toBe('ru-main')
+		expect(progress.unlockedLessonIds).toEqual(['ru-lesson-1'])
+		expect(progress.completedLessonIds).toEqual([])
 		expect(progress.knownSymbolIds).toEqual([])
 		expect(progress.lastSessionDate).toBeNull()
 	})

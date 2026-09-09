@@ -4,6 +4,8 @@
 
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import { useFocusEffect } from '@react-navigation/native'
+import { useCallback, useState } from 'react'
 
 import { Screen } from '@/src/components/Screen'
 import {
@@ -13,12 +15,38 @@ import {
 	SurfaceCard,
 } from '@/src/components/ui'
 import type { RootStackParamList } from '@/src/navigation/types'
+import { getLessonById } from '@/src/domain'
+import { ensureCourseDefaults } from '@/src/features/learning/progress'
+import { useAppBootstrap } from '@/src/features/bootstrap/AppBootstrap'
 import { spacing, typography, useTheme } from '@/src/theme'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>
 
 export function HomeScreen ({ navigation }: Props) {
 	const { colors } = useTheme()
+	const { preferences } = useAppBootstrap()
+	const [lessonTitle, setLessonTitle] = useState('Урок 1')
+	const [knownCount, setKnownCount] = useState(0)
+	const [hasStarted, setHasStarted] = useState(false)
+
+	useFocusEffect(
+		useCallback(() => {
+			let active = true
+			void (async () => {
+				const progress = await ensureCourseDefaults(preferences.selectedAlphabet)
+				const lesson = getLessonById(progress.currentLessonId)
+				if (!active) {
+					return
+				}
+				setLessonTitle(lesson?.title ?? 'Урок 1')
+				setKnownCount(progress.knownSymbolIds.length)
+				setHasStarted(progress.completedLessonIds.length > 0)
+			})()
+			return () => {
+				active = false
+			}
+		}, [preferences.selectedAlphabet]),
+	)
 
 	return (
 		<Screen contentStyle={styles.content}>
@@ -37,12 +65,12 @@ export function HomeScreen ({ navigation }: Props) {
 				<Text
 					style={[styles.continueEyebrow, { color: colors.accent }]}
 				>
-					Продолжить обучение
+					{hasStarted ? 'Продолжить обучение' : 'Начать обучение'}
 				</Text>
 				<Text
 					style={[styles.continueTitle, { color: colors.textPrimary }]}
 				>
-					Урок 1 · Начало обучения
+					{lessonTitle}
 				</Text>
 				<Text
 					style={[
@@ -50,10 +78,10 @@ export function HomeScreen ({ navigation }: Props) {
 						{ color: colors.textSecondary },
 					]}
 				>
-					Короткие шаги: сначала символы, потом слух.
+					Изучено символов: {knownCount}. Короткие шаги: сначала знакомство, потом слух.
 				</Text>
 				<AppButton
-					label="Начать"
+					label={hasStarted ? 'Продолжить' : 'Начать'}
 					onPress={() => navigation.navigate('Lesson')}
 					style={styles.continueButton}
 				/>

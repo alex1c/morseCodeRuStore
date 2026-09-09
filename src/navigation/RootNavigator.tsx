@@ -10,6 +10,7 @@ import { ErrorsScreen } from '@/src/screens/ErrorsScreen'
 import { HomeScreen } from '@/src/screens/HomeScreen'
 import { LearningScreen } from '@/src/screens/LearningScreen'
 import { LessonScreen } from '@/src/screens/LessonScreen'
+import { LessonResultScreen } from '@/src/screens/LessonResultScreen'
 import { OnboardingScreen } from '@/src/screens/OnboardingScreen'
 import { QuickPracticeScreen } from '@/src/screens/QuickPracticeScreen'
 import { ReceiveScreen } from '@/src/screens/ReceiveScreen'
@@ -72,6 +73,11 @@ export function RootNavigator ({
 					options={{ title: 'Урок' }}
 				/>
 				<Stack.Screen
+					name="LessonResult"
+					component={LessonResultScreen}
+					options={{ title: 'Результат урока' }}
+				/>
+				<Stack.Screen
 					name="Receive"
 					component={ReceiveScreen}
 					options={{ title: 'Приём на слух' }}
@@ -109,7 +115,7 @@ export function RootNavigator ({
 				<Stack.Screen
 					name="Reference"
 					component={ReferenceScreen}
-					options={{ title: 'Справочник' }}
+					options={{ title: 'Визуальная азбука' }}
 				/>
 				<Stack.Screen
 					name="Learning"

@@ -6,10 +6,16 @@
 export type LocalDateString = string
 
 export type LearningProgress = {
+	/** Active course id (ru-main or latin-main). */
+	currentCourseId: string
 	/** Lesson id currently in focus (e.g. lesson-1). */
 	currentLessonId: string
 	/** Lesson ids the user may open. */
 	unlockedLessonIds: string[]
+	/** Completed lessons across courses. */
+	completedLessonIds: string[]
+	/** Best percent score by lesson id. */
+	bestLessonScorePercentById: Record<string, number>
 	/** Symbol ids already introduced / considered known. */
 	knownSymbolIds: string[]
 	/** Last practice/session calendar date, or null if never practiced. */
@@ -17,8 +23,11 @@ export type LearningProgress = {
 }
 
 export const DEFAULT_LEARNING_PROGRESS: LearningProgress = {
-	currentLessonId: 'lesson-1',
-	unlockedLessonIds: ['lesson-1'],
+	currentCourseId: 'ru-main',
+	currentLessonId: 'ru-lesson-1',
+	unlockedLessonIds: ['ru-lesson-1'],
+	completedLessonIds: [],
+	bestLessonScorePercentById: {},
 	knownSymbolIds: [],
 	lastSessionDate: null,
 }

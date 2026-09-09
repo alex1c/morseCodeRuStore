@@ -65,6 +65,34 @@ export async function ensureStorageMigrated (): Promise<void> {
 		migrated = true
 		return
 	}
+	const previous = meta?.schemaVersion ?? 0
+	if (previous < 2) {
+		const rawProgress = await readJson<Partial<LearningProgress>>(
+			STORAGE_KEYS.progress,
+		)
+		if (rawProgress) {
+			const normalized: LearningProgress = {
+				...DEFAULT_LEARNING_PROGRESS,
+				...rawProgress,
+				currentCourseId:
+					rawProgress.currentCourseId ??
+					DEFAULT_LEARNING_PROGRESS.currentCourseId,
+				completedLessonIds:
+					rawProgress.completedLessonIds ??
+					DEFAULT_LEARNING_PROGRESS.completedLessonIds,
+				bestLessonScorePercentById:
+					rawProgress.bestLessonScorePercentById ??
+					DEFAULT_LEARNING_PROGRESS.bestLessonScorePercentById,
+				unlockedLessonIds:
+					rawProgress.unlockedLessonIds ??
+					DEFAULT_LEARNING_PROGRESS.unlockedLessonIds,
+				knownSymbolIds:
+					rawProgress.knownSymbolIds ??
+					DEFAULT_LEARNING_PROGRESS.knownSymbolIds,
+			}
+			await writeJson(STORAGE_KEYS.progress, normalized)
+		}
+	}
 	await writeJson(STORAGE_KEYS.meta, {
 		schemaVersion: STORAGE_SCHEMA_VERSION,
 	})
@@ -133,6 +161,15 @@ export async function getLearningProgress (): Promise<LearningProgress> {
 	return {
 		...DEFAULT_LEARNING_PROGRESS,
 		...stored,
+		currentCourseId:
+			stored.currentCourseId ??
+			DEFAULT_LEARNING_PROGRESS.currentCourseId,
+		completedLessonIds:
+			stored.completedLessonIds ??
+			DEFAULT_LEARNING_PROGRESS.completedLessonIds,
+		bestLessonScorePercentById:
+			stored.bestLessonScorePercentById ??
+			DEFAULT_LEARNING_PROGRESS.bestLessonScorePercentById,
 		unlockedLessonIds:
 			stored.unlockedLessonIds ??
 			DEFAULT_LEARNING_PROGRESS.unlockedLessonIds,
@@ -147,6 +184,22 @@ export async function saveLearningProgress (
 ): Promise<void> {
 	await ensureStorageMigrated()
 	await writeJson(STORAGE_KEYS.progress, progress)
+}
+
+export async function updateLearningProgress (
+	patch: Partial<LearningProgress>,
+): Promise<LearningProgress> {
+	const current = await getLearningProgress()
+	const next: LearningProgress = {
+		...current,
+		...patch,
+		bestLessonScorePercentById: {
+			...current.bestLessonScorePercentById,
+			...(patch.bestLessonScorePercentById ?? {}),
+		},
+	}
+	await saveLearningProgress(next)
+	return next
 }
 
 export async function getSymbolStatsMap (): Promise<SymbolStatsMap> {
