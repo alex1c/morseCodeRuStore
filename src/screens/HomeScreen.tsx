@@ -18,6 +18,7 @@ import type { RootStackParamList } from '@/src/navigation/types'
 import { getLessonById } from '@/src/domain'
 import { ensureCourseDefaults } from '@/src/features/learning/progress'
 import { useAppBootstrap } from '@/src/features/bootstrap/AppBootstrap'
+import { getReceiveSettings } from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>
@@ -28,12 +29,18 @@ export function HomeScreen ({ navigation }: Props) {
 	const [lessonTitle, setLessonTitle] = useState('Урок 1')
 	const [knownCount, setKnownCount] = useState(0)
 	const [hasStarted, setHasStarted] = useState(false)
+	const [receiveSubtitle, setReceiveSubtitle] = useState(
+		'20 вопросов · 12 WPM',
+	)
 
 	useFocusEffect(
 		useCallback(() => {
 			let active = true
 			void (async () => {
-				const progress = await ensureCourseDefaults(preferences.selectedAlphabet)
+				const [progress, receive] = await Promise.all([
+					ensureCourseDefaults(preferences.selectedAlphabet),
+					getReceiveSettings(),
+				])
 				const lesson = getLessonById(progress.currentLessonId)
 				if (!active) {
 					return
@@ -41,6 +48,13 @@ export function HomeScreen ({ navigation }: Props) {
 				setLessonTitle(lesson?.title ?? 'Урок 1')
 				setKnownCount(progress.knownSymbolIds.length)
 				setHasStarted(progress.completedLessonIds.length > 0)
+				const lengthLabel =
+					receive.sessionLength === 'infinite'
+						? '∞'
+						: String(receive.sessionLength)
+				setReceiveSubtitle(
+					`${lengthLabel} вопросов · ${receive.characterWpm} WPM`,
+				)
 			})()
 			return () => {
 				active = false
@@ -93,7 +107,7 @@ export function HomeScreen ({ navigation }: Props) {
 			<View style={styles.modeGrid}>
 				<ModeCard
 					title="Приём на слух"
-					subtitle="Слушай и узнавай символы"
+					subtitle={receiveSubtitle}
 					onPress={() => navigation.navigate('Receive')}
 				/>
 				<ModeCard

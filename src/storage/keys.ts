@@ -8,7 +8,8 @@ export const STORAGE_KEYS = {
 	preferences: '@morse/preferences',
 	progress: '@morse/progress',
 	symbolStats: '@morse/symbolStats',
+	receiveSettings: '@morse/receiveSettings',
 } as const
 
 /** Current local storage schema version. */
-export const STORAGE_SCHEMA_VERSION = 2 as const
+export const STORAGE_SCHEMA_VERSION = 3 as const

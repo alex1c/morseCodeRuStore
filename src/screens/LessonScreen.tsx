@@ -1,3 +1,7 @@
+/**
+ * Lesson flow — uses shared playback orchestration from Phase 4.
+ */
+
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
@@ -15,8 +19,7 @@ import {
 	getSymbolById,
 	type LessonQuestionResult,
 } from '@/src/domain'
-import { getMorseAudioService } from '@/src/features/morseAudio'
-import { createAudioGate } from '@/src/features/learning/audioGate'
+import { createSymbolPlaybackController } from '@/src/features/playback'
 import { saveLessonResultAndProgress } from '@/src/features/learning/progress'
 import type { RootStackParamList } from '@/src/navigation/types'
 import { getLearningProgress, getUserPreferences } from '@/src/storage'
@@ -47,19 +50,7 @@ export function LessonScreen ({ navigation }: Props) {
 		farnsworthMultiplier: 1.5,
 		toneFrequencyHz: 600,
 	})
-	const timersRef = useRef<number[]>([])
-	const audioGateRef = useRef(
-		createAudioGate({
-			stop: async () => {
-				await getMorseAudioService().stop()
-			},
-		}),
-	)
-
-	const clearTimers = () => {
-		timersRef.current.forEach((id) => clearTimeout(id))
-		timersRef.current = []
-	}
+	const playbackRef = useRef(createSymbolPlaybackController())
 
 	useFocusEffect(
 		useCallback(() => {
@@ -89,8 +80,7 @@ export function LessonScreen ({ navigation }: Props) {
 			})()
 			return () => {
 				active = false
-				clearTimers()
-				void getMorseAudioService().stop()
+				void playbackRef.current.stop()
 			}
 		}, []),
 	)
@@ -101,7 +91,9 @@ export function LessonScreen ({ navigation }: Props) {
 		if (!lesson) {
 			return null
 		}
-		const seed = lesson.id.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
+		const seed = lesson.id
+			.split('')
+			.reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
 		return generateLessonSession(lesson, lesson.reviewSymbolIds, seed)
 	}, [lesson])
 
@@ -109,39 +101,30 @@ export function LessonScreen ({ navigation }: Props) {
 	const question = session?.questions[questionIndex]
 
 	const runSymbolPlayback = async (symbolId: string) => {
-		const symbol = getSymbolById(symbolId)
-		if (!symbol) {
-			return
-		}
-		clearTimers()
-		setActiveElementIndex(-1)
 		const base = prefsRef.current
-		for (let i = 0; i < symbol.code.length; i += 1) {
-			const id = setTimeout(() => {
-				setActiveElementIndex(i)
-			}, i * (base.targetWpm >= 15 ? 260 : 320))
-			timersRef.current.push(id as unknown as number)
-		}
-		await audioGateRef.current.playReplacing(async () => {
-			await getMorseAudioService().playCode(symbol.code, {
+		await playbackRef.current.playSymbol(
+			symbolId,
+			{
 				characterWpm: base.targetWpm,
 				farnsworthMultiplier: base.farnsworthMultiplier,
 				frequencyHz: base.toneFrequencyHz,
-			})
-		})
-		setActiveElementIndex(-1)
+			},
+			setActiveElementIndex,
+		)
 	}
 
 	const submitAnswer = async (selectedSymbolId: string) => {
-		if (!question || busy) {
+		if (!question || busy || feedback) {
 			return
 		}
-		await getMorseAudioService().stop()
+		await playbackRef.current.stop()
 		const isCorrect = selectedSymbolId === question.symbolId
 		if (isCorrect) {
 			void Haptics.selectionAsync()
 		} else {
-			void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+			void Haptics.notificationAsync(
+				Haptics.NotificationFeedbackType.Warning,
+			)
 		}
 		setFeedback({
 			selected: selectedSymbolId,
@@ -167,8 +150,11 @@ export function LessonScreen ({ navigation }: Props) {
 		}
 		const next = questionIndex + 1
 		if (next >= session.questions.length) {
-			const finalResults = results
-			const result = buildLessonResult(lesson.id, lesson.courseId, finalResults)
+			const result = buildLessonResult(
+				lesson.id,
+				lesson.courseId,
+				results,
+			)
 			await saveLessonResultAndProgress(result)
 			navigation.replace('LessonResult', {
 				lessonId: result.lessonId,

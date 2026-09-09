@@ -84,7 +84,8 @@ export function applyAttemptToStats (
 	},
 	input: {
 		isCorrect: boolean
-		responseTimeMs: number
+		/** Null for paper/self-check — do not invent 0 ms. */
+		responseTimeMs: number | null
 		practicedAt: string
 		answerSymbolId?: string
 	},
@@ -93,13 +94,15 @@ export function applyAttemptToStats (
 	const correct = previous.correct + (input.isCorrect ? 1 : 0)
 	const incorrect = previous.incorrect + (input.isCorrect ? 0 : 1)
 	const averageResponseTimeMs =
-		previous.attempts === 0
-			? input.responseTimeMs
-			: Math.round(
-				(previous.averageResponseTimeMs * previous.attempts +
-					input.responseTimeMs) /
-					attempts,
-			)
+		input.responseTimeMs == null
+			? previous.averageResponseTimeMs
+			: previous.attempts === 0 || previous.averageResponseTimeMs <= 0
+				? input.responseTimeMs
+				: Math.round(
+					(previous.averageResponseTimeMs * previous.attempts +
+						input.responseTimeMs) /
+						attempts,
+				)
 
 	const confusionMap = { ...previous.confusionMap }
 	if (!input.isCorrect && input.answerSymbolId) {

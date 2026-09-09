@@ -20,6 +20,7 @@ export {
 	createSeededRandom,
 	generateLessonSession,
 	generateQuestionOptions,
+	type RandomLike,
 } from './session'
 export {
 	buildLessonResult,

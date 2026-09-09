@@ -14,6 +14,8 @@ import { LessonResultScreen } from '@/src/screens/LessonResultScreen'
 import { OnboardingScreen } from '@/src/screens/OnboardingScreen'
 import { QuickPracticeScreen } from '@/src/screens/QuickPracticeScreen'
 import { ReceiveScreen } from '@/src/screens/ReceiveScreen'
+import { ReceiveSessionScreen } from '@/src/screens/ReceiveSessionScreen'
+import { ReceiveResultScreen } from '@/src/screens/ReceiveResultScreen'
 import { ReferenceScreen } from '@/src/screens/ReferenceScreen'
 import { SettingsScreen } from '@/src/screens/SettingsScreen'
 import { StatsScreen } from '@/src/screens/StatsScreen'
@@ -81,6 +83,16 @@ export function RootNavigator ({
 					name="Receive"
 					component={ReceiveScreen}
 					options={{ title: 'Приём на слух' }}
+				/>
+				<Stack.Screen
+					name="ReceiveSession"
+					component={ReceiveSessionScreen}
+					options={{ title: 'Тренировка' }}
+				/>
+				<Stack.Screen
+					name="ReceiveResult"
+					component={ReceiveResultScreen}
+					options={{ title: 'Результат' }}
 				/>
 				<Stack.Screen
 					name="Transmit"

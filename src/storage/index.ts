@@ -17,6 +17,13 @@ import {
 	type SymbolStatsMap,
 	type UserPreferences,
 } from '@/src/types'
+import {
+	applyAttemptToStats,
+} from '@/src/domain/morse'
+import {
+	DEFAULT_RECEIVE_SETTINGS,
+	type ReceiveSettings,
+} from '@/src/features/receive'
 import { STORAGE_KEYS, STORAGE_SCHEMA_VERSION } from './keys'
 
 type MetaState = {
@@ -24,10 +31,12 @@ type MetaState = {
 }
 
 let migrated = false
+let symbolStatsQueue: Promise<unknown> = Promise.resolve()
 
 /** Test helper — allow re-running migration logic. */
 export function resetStorageMigrationFlagForTests (): void {
 	migrated = false
+	symbolStatsQueue = Promise.resolve()
 }
 
 async function readJson<T> (key: string): Promise<T | null> {
@@ -92,6 +101,15 @@ export async function ensureStorageMigrated (): Promise<void> {
 			}
 			await writeJson(STORAGE_KEYS.progress, normalized)
 		}
+	}
+	if (previous < 3) {
+		const existing = await readJson<Partial<ReceiveSettings>>(
+			STORAGE_KEYS.receiveSettings,
+		)
+		await writeJson(STORAGE_KEYS.receiveSettings, {
+			...DEFAULT_RECEIVE_SETTINGS,
+			...(existing ?? {}),
+		})
 	}
 	await writeJson(STORAGE_KEYS.meta, {
 		schemaVersion: STORAGE_SCHEMA_VERSION,
@@ -233,6 +251,58 @@ export async function getOrCreateSymbolStats (
 }
 
 /**
+ * Serialized SymbolStats update — prevents lost writes under rapid answers.
+ */
+export async function recordSymbolAttempt (input: {
+	expectedSymbolId: string
+	isCorrect: boolean
+	responseTimeMs: number | null
+	answerSymbolId?: string
+	practicedAt?: string
+}): Promise<SymbolStats> {
+	const run = symbolStatsQueue.then(async () => {
+		await ensureStorageMigrated()
+		const map = await getSymbolStatsMap()
+		const previous =
+			map[input.expectedSymbolId] ??
+			createEmptySymbolStats(input.expectedSymbolId)
+		const next = applyAttemptToStats(previous, {
+			isCorrect: input.isCorrect,
+			responseTimeMs: input.responseTimeMs,
+			practicedAt: input.practicedAt ?? new Date().toISOString(),
+			answerSymbolId: input.answerSymbolId,
+		})
+		map[input.expectedSymbolId] = next
+		await saveSymbolStatsMap(map)
+		return next
+	})
+	symbolStatsQueue = run.then(
+		() => undefined,
+		() => undefined,
+	)
+	return run
+}
+
+export async function getReceiveSettings (): Promise<ReceiveSettings> {
+	await ensureStorageMigrated()
+	const stored = await readJson<Partial<ReceiveSettings>>(
+		STORAGE_KEYS.receiveSettings,
+	)
+	return {
+		...DEFAULT_RECEIVE_SETTINGS,
+		...(stored ?? {}),
+		customSymbolIds: stored?.customSymbolIds ?? [],
+	}
+}
+
+export async function saveReceiveSettings (
+	settings: ReceiveSettings,
+): Promise<void> {
+	await ensureStorageMigrated()
+	await writeJson(STORAGE_KEYS.receiveSettings, settings)
+}
+
+/**
  * Clear all Morse trainer keys — used in tests / debug reset.
  */
 export async function clearAllStorageForTests (): Promise<void> {
@@ -241,8 +311,10 @@ export async function clearAllStorageForTests (): Promise<void> {
 		STORAGE_KEYS.preferences,
 		STORAGE_KEYS.progress,
 		STORAGE_KEYS.symbolStats,
+		STORAGE_KEYS.receiveSettings,
 	])
 	migrated = false
+	symbolStatsQueue = Promise.resolve()
 }
 
 export { STORAGE_KEYS, STORAGE_SCHEMA_VERSION } from './keys'
