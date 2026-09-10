@@ -33,7 +33,7 @@ export function bytesToBase64 (bytes: Uint8Array): string {
 }
 
 /**
- * Build a sine-wave WAV as a base64 data URI for expo-av.
+ * Build a sine-wave WAV as a base64 data URI for expo-audio.
  * Includes a tiny fade in/out to reduce clicks.
  */
 export function buildToneWavDataUri (
@@ -90,7 +90,7 @@ export function buildToneWavDataUri (
 
 /**
  * Build a seamless looping sine WAV (integer periods, no edge fade).
- * Used for continuous straight-key sidetone via expo-av isLooping.
+ * Used for continuous straight-key sidetone via expo-audio looping.
  */
 export function buildSeamlessToneLoopWavDataUri (
 	frequencyHz: number,

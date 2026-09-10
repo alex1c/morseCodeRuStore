@@ -1,23 +1,20 @@
 /**
- * Jest setup — AsyncStorage + expo-av + optional native SDK mocks.
+ * Jest setup — AsyncStorage + expo-audio + optional native SDK mocks.
  */
 
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock'
 
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage)
 
-jest.mock('expo-av', () => ({
-	Audio: {
-		Sound: {
-			createAsync: jest.fn(async () => ({
-				sound: {
-					stopAsync: jest.fn(async () => undefined),
-					unloadAsync: jest.fn(async () => undefined),
-				},
-			})),
-		},
-		setAudioModeAsync: jest.fn(async () => undefined),
-	},
+jest.mock('expo-audio', () => ({
+	createAudioPlayer: jest.fn(() => ({
+		play: jest.fn(),
+		pause: jest.fn(),
+		remove: jest.fn(),
+		volume: 1,
+		loop: false,
+	})),
+	setAudioModeAsync: jest.fn(async () => undefined),
 }))
 
 // Native ads SDK — prevent require() failures in Node/Jest.

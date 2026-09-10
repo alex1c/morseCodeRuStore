@@ -3,7 +3,8 @@ export type {
 	MorseAudioService,
 } from './types'
 export {
-	createExpoAvMorseAudioService,
+  createExpoAvMorseAudioService,
+  createExpoAudioMorseAudioService,
 	getMorseAudioService,
 	setMorseAudioServiceForTests,
 } from './expoAvPlayer'

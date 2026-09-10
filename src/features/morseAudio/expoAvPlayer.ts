@@ -1,8 +1,12 @@
 /**
- * Expo-AV Morse player — race-safe sequential timeline playback + live sidetone.
+ * Expo Audio Morse player — race-safe sequential timeline playback + live sidetone.
  */
 
-import { Audio } from 'expo-av'
+import {
+	createAudioPlayer,
+	setAudioModeAsync,
+	type AudioPlayer,
+} from 'expo-audio'
 
 import {
 	buildTimelineForCode,
@@ -21,11 +25,11 @@ import {
 	buildToneWavDataUri,
 } from './wavTone'
 
-export function createExpoAvMorseAudioService (): MorseAudioService {
+export function createExpoAudioMorseAudioService (): MorseAudioService {
 	let generation = 0
 	let playing = false
-	let activeSound: Audio.Sound | null = null
-	let liveToneSound: Audio.Sound | null = null
+	let activeSound: AudioPlayer | null = null
+	let liveToneSound: AudioPlayer | null = null
 	let liveToneActive = false
 	let cancelFlag = { cancelled: false }
 
@@ -35,16 +39,8 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 		}
 		const sound = activeSound
 		activeSound = null
-		try {
-			await sound.stopAsync()
-		} catch {
-			// ignore
-		}
-		try {
-			await sound.unloadAsync()
-		} catch {
-			// ignore
-		}
+		sound.pause()
+		sound.remove()
 	}
 
 	const unloadLiveTone = async () => {
@@ -54,16 +50,8 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 		}
 		const sound = liveToneSound
 		liveToneSound = null
-		try {
-			await sound.stopAsync()
-		} catch {
-			// ignore
-		}
-		try {
-			await sound.unloadAsync()
-		} catch {
-			// ignore
-		}
+		sound.pause()
+		sound.remove()
 	}
 
 	const stop = async () => {
@@ -84,12 +72,12 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 		playing = true
 
 		try {
-			await Audio.setAudioModeAsync({
-				playsInSilentModeIOS: true,
-				allowsRecordingIOS: false,
-				staysActiveInBackground: false,
-				shouldDuckAndroid: true,
-				playThroughEarpieceAndroid: false,
+			await setAudioModeAsync({
+				playsInSilentMode: true,
+				allowsRecording: false,
+				shouldPlayInBackground: false,
+				interruptionMode: 'duckOthers',
+				shouldRouteThroughEarpiece: false,
 			})
 		} catch {
 			// Audio mode is best-effort on all platforms.
@@ -109,12 +97,12 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 					options.frequencyHz,
 					event.durationMs,
 				)
-				const { sound } = await Audio.Sound.createAsync(
-					{ uri },
-					{ shouldPlay: true, volume: 1 },
-				)
+				const sound = createAudioPlayer(uri, { keepAudioSessionActive: false })
+				sound.volume = 1
+				sound.play()
 				if (cancelFlag.cancelled || myGeneration !== generation) {
-					await sound.unloadAsync()
+					sound.pause()
+					sound.remove()
 					break
 				}
 				activeSound = sound
@@ -134,12 +122,12 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 		await stop()
 		const myGeneration = generation
 		try {
-			await Audio.setAudioModeAsync({
-				playsInSilentModeIOS: true,
-				allowsRecordingIOS: false,
-				staysActiveInBackground: false,
-				shouldDuckAndroid: true,
-				playThroughEarpieceAndroid: false,
+			await setAudioModeAsync({
+				playsInSilentMode: true,
+				allowsRecording: false,
+				shouldPlayInBackground: false,
+				interruptionMode: 'duckOthers',
+				shouldRouteThroughEarpiece: false,
 			})
 		} catch {
 			// best-effort
@@ -148,12 +136,13 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 			return
 		}
 		const uri = buildSeamlessToneLoopWavDataUri(frequencyHz)
-		const { sound } = await Audio.Sound.createAsync(
-			{ uri },
-			{ shouldPlay: true, isLooping: true, volume: 1 },
-		)
+		const sound = createAudioPlayer(uri, { keepAudioSessionActive: false })
+		sound.loop = true
+		sound.volume = 1
+		sound.play()
 		if (myGeneration !== generation) {
-			await sound.unloadAsync()
+			sound.pause()
+			sound.remove()
 			return
 		}
 		liveToneSound = sound
@@ -193,12 +182,15 @@ export function createExpoAvMorseAudioService (): MorseAudioService {
 	}
 }
 
-/** Shared app singleton — screens import this, not raw expo-av. */
+/** Backward-compatible factory name for existing callers. */
+export const createExpoAvMorseAudioService = createExpoAudioMorseAudioService
+
+/** Shared app singleton — screens import this, not raw expo-audio. */
 let singleton: MorseAudioService | null = null
 
 export function getMorseAudioService (): MorseAudioService {
 	if (!singleton) {
-		singleton = createExpoAvMorseAudioService()
+		singleton = createExpoAudioMorseAudioService()
 	}
 	return singleton
 }
