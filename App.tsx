@@ -9,6 +9,7 @@ import {
 	AppBootstrapProvider,
 	useAppBootstrap,
 } from '@/src/features/bootstrap/AppBootstrap'
+import { TorchHost } from '@/src/features/morseOutput'
 import { RootNavigator } from '@/src/navigation'
 import { ThemeProvider } from '@/src/theme'
 
@@ -23,6 +24,8 @@ function AppShell () {
 				key={preferences.onboardingCompleted ? 'main' : 'onboarding'}
 				onboardingCompleted={preferences.onboardingCompleted}
 			/>
+			{/* Off-screen camera host for flashlight Morse (permission on demand). */}
+			<TorchHost />
 		</ThemeProvider>
 	)
 }

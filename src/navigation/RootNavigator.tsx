@@ -151,7 +151,7 @@ export function RootNavigator ({
 				<Stack.Screen
 					name="Reference"
 					component={ReferenceScreen}
-					options={{ title: 'Визуальная азбука' }}
+					options={{ title: 'Справочник' }}
 				/>
 				<Stack.Screen
 					name="Learning"

@@ -39,6 +39,10 @@ import {
 	type ReceiveSettings,
 } from '@/src/features/receive'
 import {
+	DEFAULT_TOOL_SETTINGS,
+	type ToolSettings,
+} from '@/src/types/tools'
+import {
 	DEFAULT_TRANSMIT_SETTINGS,
 	applyTransmitAttempt,
 	createEmptyTransmitSymbolStats,
@@ -175,6 +179,16 @@ export async function ensureStorageMigrated (): Promise<void> {
 		if (!existingDaily) {
 			await writeJson(STORAGE_KEYS.daily, emptyDailyState())
 		}
+	}
+	if (previous < 7) {
+		// Phase 9: Translator / Reference tool settings (no user text stored).
+		const existingTools = await readJson<Partial<ToolSettings>>(
+			STORAGE_KEYS.toolSettings,
+		)
+		await writeJson(STORAGE_KEYS.toolSettings, {
+			...DEFAULT_TOOL_SETTINGS,
+			...(existingTools ?? {}),
+		})
 	}
 	await writeJson(STORAGE_KEYS.meta, {
 		schemaVersion: STORAGE_SCHEMA_VERSION,
@@ -507,6 +521,24 @@ export async function recordDailyCompletion (
 	return next
 }
 
+export async function getToolSettings (): Promise<ToolSettings> {
+	await ensureStorageMigrated()
+	const stored = await readJson<Partial<ToolSettings>>(
+		STORAGE_KEYS.toolSettings,
+	)
+	return {
+		...DEFAULT_TOOL_SETTINGS,
+		...(stored ?? {}),
+	}
+}
+
+export async function saveToolSettings (
+	settings: ToolSettings,
+): Promise<void> {
+	await ensureStorageMigrated()
+	await writeJson(STORAGE_KEYS.toolSettings, settings)
+}
+
 /**
  * Clear all Morse trainer keys — used in tests / debug reset.
  */
@@ -521,6 +553,7 @@ export async function clearAllStorageForTests (): Promise<void> {
 		STORAGE_KEYS.transmitStats,
 		STORAGE_KEYS.sessionHistory,
 		STORAGE_KEYS.daily,
+		STORAGE_KEYS.toolSettings,
 	])
 	migrated = false
 	symbolStatsQueue = Promise.resolve()

@@ -32,7 +32,7 @@ describe('storage session history + daily', () => {
 			(await AsyncStorage.getItem(STORAGE_KEYS.meta)) ?? '{}',
 		) as { schemaVersion: number }
 		expect(meta.schemaVersion).toBe(STORAGE_SCHEMA_VERSION)
-		expect(STORAGE_SCHEMA_VERSION).toBe(6)
+		expect(STORAGE_SCHEMA_VERSION).toBe(7)
 		const history = await getSessionHistory()
 		expect(history.sessions).toEqual([])
 		const daily = await getDailyState()

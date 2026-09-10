@@ -21,3 +21,6 @@ export {
 	DEFAULT_LEARNING_PROGRESS,
 	createEmptySymbolStats,
 } from './progress'
+
+export type { ToolSettings } from './tools'
+export { DEFAULT_TOOL_SETTINGS } from './tools'

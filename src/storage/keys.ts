@@ -13,7 +13,8 @@ export const STORAGE_KEYS = {
 	transmitStats: '@morse/transmitStats',
 	sessionHistory: '@morse/sessionHistory',
 	daily: '@morse/daily',
+	toolSettings: '@morse/toolSettings',
 } as const
 
 /** Current local storage schema version. */
-export const STORAGE_SCHEMA_VERSION = 6 as const
+export const STORAGE_SCHEMA_VERSION = 7 as const
