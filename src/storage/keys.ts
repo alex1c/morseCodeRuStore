@@ -11,7 +11,9 @@ export const STORAGE_KEYS = {
 	receiveSettings: '@morse/receiveSettings',
 	transmitSettings: '@morse/transmitSettings',
 	transmitStats: '@morse/transmitStats',
+	sessionHistory: '@morse/sessionHistory',
+	daily: '@morse/daily',
 } as const
 
 /** Current local storage schema version. */
-export const STORAGE_SCHEMA_VERSION = 5 as const
+export const STORAGE_SCHEMA_VERSION = 6 as const

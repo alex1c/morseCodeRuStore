@@ -21,6 +21,20 @@ import {
 	applyAttemptToStats,
 } from '@/src/domain/morse'
 import {
+	emptyDailyState,
+	applyDailyCompletion,
+	DAILY_COMPLETION_MAX_DATES,
+	type DailyCompletion,
+	type DailyState,
+} from '@/src/domain/daily'
+import {
+	appendSessionSummary,
+	emptySessionHistory,
+	SESSION_HISTORY_MAX,
+	type SessionHistoryState,
+	type SessionSummary,
+} from '@/src/domain/session-history'
+import {
 	DEFAULT_RECEIVE_SETTINGS,
 	type ReceiveSettings,
 } from '@/src/features/receive'
@@ -145,6 +159,22 @@ export async function ensureStorageMigrated (): Promise<void> {
 			...DEFAULT_RECEIVE_SETTINGS,
 			...(existing ?? {}),
 		})
+	}
+	if (previous < 6) {
+		// Phase 8: session history + daily streak state (preserve existing keys).
+		const existingHistory = await readJson<SessionHistoryState>(
+			STORAGE_KEYS.sessionHistory,
+		)
+		if (!existingHistory) {
+			await writeJson(
+				STORAGE_KEYS.sessionHistory,
+				emptySessionHistory(),
+			)
+		}
+		const existingDaily = await readJson<DailyState>(STORAGE_KEYS.daily)
+		if (!existingDaily) {
+			await writeJson(STORAGE_KEYS.daily, emptyDailyState())
+		}
 	}
 	await writeJson(STORAGE_KEYS.meta, {
 		schemaVersion: STORAGE_SCHEMA_VERSION,
@@ -404,6 +434,80 @@ export async function recordTransmitAttempt (input: {
 }
 
 /**
+ * Session history — newest-first summaries for Stats / Daily.
+ */
+export async function getSessionHistory (): Promise<SessionHistoryState> {
+	await ensureStorageMigrated()
+	const stored = await readJson<SessionHistoryState>(
+		STORAGE_KEYS.sessionHistory,
+	)
+	if (!stored || !Array.isArray(stored.sessions)) {
+		return emptySessionHistory()
+	}
+	return { sessions: stored.sessions }
+}
+
+export async function saveSessionHistory (
+	state: SessionHistoryState,
+): Promise<void> {
+	await ensureStorageMigrated()
+	await writeJson(STORAGE_KEYS.sessionHistory, state)
+}
+
+/**
+ * Append one session summary and prune to SESSION_HISTORY_MAX.
+ * Idempotent for duplicate ids.
+ */
+export async function appendSessionRecord (
+	summary: SessionSummary,
+): Promise<SessionHistoryState> {
+	const current = await getSessionHistory()
+	const next = appendSessionSummary(
+		current,
+		summary,
+		SESSION_HISTORY_MAX,
+	)
+	await saveSessionHistory(next)
+	return next
+}
+
+/**
+ * Daily completion dates + last completion detail for Home / streak.
+ */
+export async function getDailyState (): Promise<DailyState> {
+	await ensureStorageMigrated()
+	const stored = await readJson<Partial<DailyState>>(STORAGE_KEYS.daily)
+	if (!stored) {
+		return emptyDailyState()
+	}
+	return {
+		completedDates: stored.completedDates ?? [],
+		lastCompletion: stored.lastCompletion ?? null,
+	}
+}
+
+export async function saveDailyState (state: DailyState): Promise<void> {
+	await ensureStorageMigrated()
+	await writeJson(STORAGE_KEYS.daily, state)
+}
+
+/**
+ * Record a Daily completion (idempotent for the same local date).
+ */
+export async function recordDailyCompletion (
+	completion: DailyCompletion,
+): Promise<DailyState> {
+	const current = await getDailyState()
+	const next = applyDailyCompletion(
+		current,
+		completion,
+		DAILY_COMPLETION_MAX_DATES,
+	)
+	await saveDailyState(next)
+	return next
+}
+
+/**
  * Clear all Morse trainer keys — used in tests / debug reset.
  */
 export async function clearAllStorageForTests (): Promise<void> {
@@ -415,6 +519,8 @@ export async function clearAllStorageForTests (): Promise<void> {
 		STORAGE_KEYS.receiveSettings,
 		STORAGE_KEYS.transmitSettings,
 		STORAGE_KEYS.transmitStats,
+		STORAGE_KEYS.sessionHistory,
+		STORAGE_KEYS.daily,
 	])
 	migrated = false
 	symbolStatsQueue = Promise.resolve()

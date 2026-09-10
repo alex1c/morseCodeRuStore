@@ -1,5 +1,6 @@
 /**
- * Features root — bootstrap, Morse audio, playback, receive, transmit.
+ * Features root — bootstrap, Morse audio, playback, receive, transmit,
+ * daily, session history.
  */
 
 export { AppBootstrapProvider, useAppBootstrap } from './bootstrap/AppBootstrap'
@@ -10,3 +11,5 @@ export {
 export * from './receive'
 export * from './playback'
 export * from './transmit'
+export * from './daily'
+export * from './session-history'

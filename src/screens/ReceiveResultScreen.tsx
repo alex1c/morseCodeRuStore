@@ -16,7 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReceiveResult'>
 
 export function ReceiveResultScreen ({ navigation, route }: Props) {
 	const { colors } = useTheme()
-	const { result, settings, symbolPool, weights } = route.params
+	const { result, settings, symbolPool, weights, durationMs } = route.params
 
 	const strong = result.strongSymbolIds
 		.map((id) => getSymbolById(id)?.character ?? '?')
@@ -39,6 +39,11 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 		result.characterTotal > 0 &&
 		(settings.contentKind !== 'symbol' || result.characterTotal > 1)
 
+	const durationLabel =
+		durationMs == null
+			? null
+			: `${Math.max(1, Math.round(durationMs / 60_000))} мин`
+
 	const multiWrongItems = result.wrongItems.filter(
 		(item) => item.contentKind !== 'symbol',
 	)
@@ -60,6 +65,8 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 				symbolPool,
 				seed: wallTimeMs() % 1_000_000,
 				weights,
+				sessionSource: 'receive',
+				sessionStartedAtMs: wallTimeMs(),
 				retryItems: multiWrongItems.map((item) => ({
 					text: item.text,
 					contentKind: item.contentKind as Exclude<
@@ -86,6 +93,8 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 				symbolPool: unique,
 				seed: wallTimeMs() % 1_000_000,
 				weights,
+				sessionSource: 'receive',
+				sessionStartedAtMs: wallTimeMs(),
 			})
 		}
 	}
@@ -107,6 +116,11 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 						По символам: {result.characterAccuracyPercent}%
 						{' '}
 						({result.characterCorrect}/{result.characterTotal})
+					</Text>
+				) : null}
+				{durationLabel ? (
+					<Text style={[styles.meta, { color: colors.textSecondary }]}>
+						Длительность: {durationLabel}
 					</Text>
 				) : null}
 				<Text style={[styles.meta, { color: colors.textSecondary }]}>
@@ -149,6 +163,8 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 							symbolPool,
 							seed: wallTimeMs() % 1_000_000,
 							weights,
+							sessionSource: 'receive',
+							sessionStartedAtMs: wallTimeMs(),
 						})
 					}}
 				/>

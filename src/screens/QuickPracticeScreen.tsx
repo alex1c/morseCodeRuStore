@@ -24,6 +24,7 @@ import {
 	getReceiveSettings,
 	getSymbolStatsMap,
 } from '@/src/storage'
+import { wallTimeMs } from '@/src/utils/clock'
 import { typography, useTheme } from '@/src/theme'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'QuickPractice'>
@@ -89,7 +90,11 @@ export function QuickPracticeScreen ({ navigation }: Props) {
 						cooldownN: adaptiveLaunchCooldown(),
 					})
 					launchedRef.current = true
-					navigation.replace('ReceiveSession', launch)
+					navigation.replace('ReceiveSession', {
+						...launch,
+						sessionSource: 'quick',
+						sessionStartedAtMs: wallTimeMs(),
+					})
 				} catch {
 					if (active) {
 						setStatus('Не удалось начать тренировку.')

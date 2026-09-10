@@ -6,6 +6,7 @@ import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 
 import { CourseScreen } from '@/src/screens/CourseScreen'
+import { DailyResultScreen } from '@/src/screens/DailyResultScreen'
 import { ErrorsScreen } from '@/src/screens/ErrorsScreen'
 import { HomeScreen } from '@/src/screens/HomeScreen'
 import { LearningScreen } from '@/src/screens/LearningScreen'
@@ -96,6 +97,11 @@ export function RootNavigator ({
 					name="ReceiveResult"
 					component={ReceiveResultScreen}
 					options={{ title: 'Результат' }}
+				/>
+				<Stack.Screen
+					name="DailyResult"
+					component={DailyResultScreen}
+					options={{ title: 'Тренировка дня' }}
 				/>
 				<Stack.Screen
 					name="Transmit"

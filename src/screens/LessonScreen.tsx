@@ -21,9 +21,19 @@ import {
 } from '@/src/domain'
 import { createSymbolPlaybackController } from '@/src/features/playback'
 import { saveLessonResultAndProgress } from '@/src/features/learning/progress'
+import {
+	buildLessonSessionSummary,
+	createSessionId,
+} from '@/src/features/session-history'
 import type { RootStackParamList } from '@/src/navigation/types'
-import { getLearningProgress, getUserPreferences, recordSymbolAttempt } from '@/src/storage'
+import {
+	appendSessionRecord,
+	getLearningProgress,
+	getUserPreferences,
+	recordSymbolAttempt,
+} from '@/src/storage'
 import { spacing, typography, useTheme } from '@/src/theme'
+import { wallTimeMs } from '@/src/utils/clock'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Lesson'>
 
@@ -52,6 +62,8 @@ export function LessonScreen ({ navigation }: Props) {
 		toneFrequencyHz: 600,
 	})
 	const playbackRef = useRef(createSymbolPlaybackController())
+	const lessonStartedAtRef = useRef(wallTimeMs())
+	const historyWrittenRef = useRef(false)
 
 	useEffect(() => {
 		resultsRef.current = results
@@ -81,6 +93,8 @@ export function LessonScreen ({ navigation }: Props) {
 				setResults([])
 				setFeedback(null)
 				setStage('intro')
+				lessonStartedAtRef.current = wallTimeMs()
+				historyWrittenRef.current = false
 				setLoading(false)
 			})()
 			return () => {
@@ -170,6 +184,20 @@ export function LessonScreen ({ navigation }: Props) {
 				resultsRef.current,
 			)
 			await saveLessonResultAndProgress(result)
+			if (!historyWrittenRef.current) {
+				historyWrittenRef.current = true
+				const durationMs = Math.min(
+					Math.max(0, wallTimeMs() - lessonStartedAtRef.current),
+					45 * 60 * 1000,
+				)
+				await appendSessionRecord(
+					buildLessonSessionSummary({
+						id: createSessionId('lesson'),
+						result,
+						durationMs,
+					}),
+				)
+			}
 			navigation.replace('LessonResult', {
 				lessonId: result.lessonId,
 				courseId: result.courseId,

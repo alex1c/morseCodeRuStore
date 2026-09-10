@@ -28,6 +28,7 @@ import {
 	getReceiveSettings,
 	getSymbolStatsMap,
 } from '@/src/storage'
+import { wallTimeMs } from '@/src/utils/clock'
 import { spacing, typography, useTheme } from '@/src/theme'
 import type { SymbolStats } from '@/src/types'
 
@@ -119,7 +120,11 @@ export function SymbolDetailScreen ({ navigation, route }: Props) {
 			baseSettings: prefs,
 			cooldownN: adaptiveLaunchCooldown(),
 		})
-		navigation.navigate('ReceiveSession', launch)
+		navigation.navigate('ReceiveSession', {
+			...launch,
+			sessionSource: 'receive',
+			sessionStartedAtMs: wallTimeMs(),
+		})
 	}
 
 	return (

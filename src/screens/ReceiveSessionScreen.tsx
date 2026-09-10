@@ -19,14 +19,20 @@ import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
 	createSeededRandom,
+	computeStreakState,
 	generateQuestionOptions,
 	getSymbolById,
 	sequenceToPattern,
 	symbolAttemptsFromAlignment,
+	toLocalDateKey,
 	type AlignmentResult,
 	type MorseElement,
 } from '@/src/domain'
 import { createSymbolPlaybackController } from '@/src/features/playback'
+import {
+	buildReceiveSessionSummary,
+	createSessionId,
+} from '@/src/features/session-history'
 import {
 	RECEIVE_FEEDBACK_CORRECT_MS,
 	RECEIVE_SPACING_OPTIONS,
@@ -54,6 +60,9 @@ import {
 } from '@/src/features/receive'
 import type { RootStackParamList } from '@/src/navigation/types'
 import {
+	appendSessionRecord,
+	getDailyState,
+	recordDailyCompletion,
 	recordSymbolAttempt,
 	saveReceiveSettings,
 } from '@/src/storage'
@@ -138,21 +147,33 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const ctxRef = useRef(ctx)
 	const startedRef = useRef(false)
 	const playGenerationRef = useRef(0)
+	const historyWrittenRef = useRef(false)
+	const finishHandledRef = useRef(false)
+	const sessionStartedAtRef = useRef(
+		route.params.sessionStartedAtMs ?? wallTimeMs(),
+	)
 
 	// Resolve session once from route params (avoids setState-in-effect for blockers).
-	const resolvedSession = useMemo(
-		() =>
-			resolveSessionQuestions({
-				settings: route.params.settings,
-				symbolPool: route.params.symbolPool,
-				seed: route.params.seed,
-				weights: route.params.weights,
-				cooldownN: route.params.cooldownN,
-				retryItems: route.params.retryItems,
-				infinitePreviewLength: 80,
-			}),
-		[route.params],
-	)
+	const resolvedSession = useMemo(() => {
+		if (
+			route.params.prebuiltQuestions &&
+			route.params.prebuiltQuestions.length > 0
+		) {
+			return {
+				questions: route.params.prebuiltQuestions,
+				blockedReason: undefined as string | undefined,
+			}
+		}
+		return resolveSessionQuestions({
+			settings: route.params.settings,
+			symbolPool: route.params.symbolPool,
+			seed: route.params.seed,
+			weights: route.params.weights,
+			cooldownN: route.params.cooldownN,
+			retryItems: route.params.retryItems,
+			infinitePreviewLength: 80,
+		})
+	}, [route.params])
 	const startError =
 		resolvedSession.blockedReason ??
 		(resolvedSession.questions.length === 0
@@ -299,7 +320,10 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		}
 		startedRef.current = true
 		const playback = playbackRef.current
+		const hasPrebuilt =
+			(route.params.prebuiltQuestions?.length ?? 0) > 0
 		const infinite =
+			!hasPrebuilt &&
 			route.params.settings.sessionLength === 'infinite' &&
 			route.params.settings.contentKind === 'symbol'
 		previousSymbolRef.current =
@@ -323,6 +347,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		clearAutoAdvance,
 		playQuestion,
 		resolvedSession.questions,
+		route.params.prebuiltQuestions,
 		route.params.settings.contentKind,
 		route.params.settings.sessionLength,
 		startError,
@@ -340,19 +365,97 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	}, [advanceToNextQuestion, clearAutoAdvance, ctx.state])
 
 	useEffect(() => {
-		if (ctx.state !== 'finished' && ctx.state !== 'cancelled') {
+		if (ctx.state === 'cancelled') {
+			if (finishHandledRef.current) {
+				return
+			}
+			finishHandledRef.current = true
+			playGenerationRef.current += 1
+			void playbackRef.current.stop()
+			if (navigation.canGoBack()) {
+				navigation.goBack()
+			} else {
+				navigation.navigate('Home')
+			}
 			return
 		}
+		if (ctx.state !== 'finished') {
+			return
+		}
+		if (finishHandledRef.current) {
+			return
+		}
+		finishHandledRef.current = true
 		playGenerationRef.current += 1
 		void playbackRef.current.stop()
 		const result = buildReceiveSessionResult(ctx.answered, ctx.questions)
-		navigation.replace('ReceiveResult', {
-			result,
-			settings,
-			symbolPool: route.params.symbolPool,
-			weights: route.params.weights,
-		})
-	}, [ctx.state, ctx.answered, ctx.questions, navigation, settings, route.params.symbolPool, route.params.weights])
+		const durationMs = Math.min(
+			Math.max(0, wallTimeMs() - sessionStartedAtRef.current),
+			45 * 60 * 1000,
+		)
+		const source = route.params.sessionSource ?? 'receive'
+		const settingsSnapshot = settings
+		const symbolPool = route.params.symbolPool
+		const weights = route.params.weights
+		const planMixSummary =
+			route.params.planMeta?.mixSummary ?? settings.contentKind
+
+		void (async () => {
+			if (!historyWrittenRef.current) {
+				historyWrittenRef.current = true
+				const summary = buildReceiveSessionSummary({
+					id: createSessionId(source),
+					result,
+					settings: settingsSnapshot,
+					source,
+					durationMs,
+				})
+				await appendSessionRecord(summary)
+			}
+
+			if (source === 'daily') {
+				const dateKey = toLocalDateKey()
+				await recordDailyCompletion({
+					dateKey,
+					completedAt: new Date().toISOString(),
+					itemsCorrect: result.correct,
+					itemsTotal: result.total,
+					characterAccuracyPercent: result.characterAccuracyPercent,
+					durationMs,
+				})
+				const dailyState = await getDailyState()
+				const streak = computeStreakState(dailyState.completedDates)
+				navigation.replace('DailyResult', {
+					result,
+					settings: settingsSnapshot,
+					symbolPool,
+					durationMs,
+					streak,
+					planMixSummary,
+				})
+				return
+			}
+
+			navigation.replace('ReceiveResult', {
+				result,
+				settings: settingsSnapshot,
+				symbolPool,
+				weights,
+				durationMs,
+				sessionSource: source,
+			})
+		})()
+	}, [
+		ctx.state,
+		ctx.answered,
+		ctx.questions,
+		navigation,
+		settings,
+		route.params.symbolPool,
+		route.params.weights,
+		route.params.sessionSource,
+		route.params.planMeta?.mixSummary,
+	])
 
 	useFocusEffect(
 		useCallback(() => {
@@ -373,13 +476,18 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 	const accuracy =
 		answered === 0 ? 0 : Math.round((correctCount / answered) * 100)
 	const totalLabel =
-		settings.sessionLength === 'infinite'
-			? '∞'
-			: String(
-				route.params.retryItems?.length
-					? route.params.retryItems.length
-					: settings.sessionLength,
+		(route.params.prebuiltQuestions?.length ?? 0) > 0
+			? String(
+				route.params.planMeta?.totalItems ??
+					route.params.prebuiltQuestions!.length,
 			)
+			: settings.sessionLength === 'infinite'
+				? '∞'
+				: String(
+					route.params.retryItems?.length
+						? route.params.retryItems.length
+						: settings.sessionLength,
+				)
 	const playing = ctx.state === 'playing' || ctx.state === 'replaying'
 	const controlsLocked = playing
 	const multiChar = question ? isMultiCharQuestion(question) : false

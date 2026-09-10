@@ -42,7 +42,14 @@ import {
 	type TransmitSettings,
 } from '@/src/features/transmit'
 import type { RootStackParamList } from '@/src/navigation/types'
-import { recordTransmitAttempt } from '@/src/storage'
+import {
+	appendSessionRecord,
+	recordTransmitAttempt,
+} from '@/src/storage'
+import {
+	buildTransmitSessionSummary,
+	createSessionId,
+} from '@/src/features/session-history'
 import { spacing, typography, useTheme } from '@/src/theme'
 import { wallTimeMs } from '@/src/utils/clock'
 
@@ -62,6 +69,9 @@ export function TransmitSessionScreen ({ navigation, route }: Props) {
 	const autoEvalRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const playbackRef = useRef(createSymbolPlaybackController())
 	const evaluatingRef = useRef(false)
+	const sessionStartedAtRef = useRef(wallTimeMs())
+	const historyWrittenRef = useRef(false)
+	const finishHandledRef = useRef(false)
 
 	useEffect(() => {
 		ctxRef.current = ctx
@@ -111,16 +121,59 @@ export function TransmitSessionScreen ({ navigation, route }: Props) {
 	}, [applyMachine, clearAutoEval, route.params, stopAudio])
 
 	useEffect(() => {
-		if (ctx.state !== 'finished' && ctx.state !== 'cancelled') {
+		if (ctx.state === 'cancelled') {
+			if (finishHandledRef.current) {
+				return
+			}
+			finishHandledRef.current = true
+			void stopAudio()
+			if (navigation.canGoBack()) {
+				navigation.goBack()
+			} else {
+				navigation.navigate('Home')
+			}
 			return
 		}
+		if (ctx.state !== 'finished') {
+			return
+		}
+		if (finishHandledRef.current) {
+			return
+		}
+		finishHandledRef.current = true
 		void stopAudio()
 		const result = buildTransmitSessionResult(ctx.answered)
-		navigation.replace('TransmitResult', {
-			result,
-			settings,
-			symbolPool: route.params.symbolPool,
-		})
+		const durationMs = Math.min(
+			Math.max(0, wallTimeMs() - sessionStartedAtRef.current),
+			45 * 60 * 1000,
+		)
+		const timingQuality =
+			ctx.answered.length === 0
+				? null
+				: ctx.answered.reduce(
+					(sum, item) => sum + item.averageQualityScore,
+					0,
+				) / ctx.answered.length
+
+		void (async () => {
+			if (!historyWrittenRef.current) {
+				historyWrittenRef.current = true
+				await appendSessionRecord(
+					buildTransmitSessionSummary({
+						id: createSessionId('transmit'),
+						result,
+						alphabet: settings.alphabet,
+						durationMs,
+						timingQuality,
+					}),
+				)
+			}
+			navigation.replace('TransmitResult', {
+				result,
+				settings,
+				symbolPool: route.params.symbolPool,
+			})
+		})()
 	}, [
 		ctx.state,
 		ctx.answered,

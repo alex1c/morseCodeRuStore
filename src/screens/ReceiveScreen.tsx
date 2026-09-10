@@ -214,6 +214,8 @@ export function ReceiveScreen ({ navigation }: Props) {
 			symbolPool: sessionPool,
 			seed: wallTimeMs() % 1_000_000,
 			weights: poolResolution.weights,
+			sessionSource: 'receive',
+			sessionStartedAtMs: wallTimeMs(),
 		})
 	}
 

@@ -4,14 +4,17 @@
 
 import type {
 	ReceiveContentKind,
+	ReceiveQuestion,
 	ReceiveSessionResult,
 	ReceiveSettings,
 } from '@/src/features/receive'
 import type { AdaptiveWeightMap } from '@/src/domain/adaptive'
+import type { StreakState } from '@/src/domain/daily'
 import type {
 	TransmitSessionResult,
 	TransmitSettings,
 } from '@/src/features/transmit'
+import type { SessionSource } from '@/src/domain/session-history'
 
 export type RootStackParamList = {
 	Onboarding: undefined
@@ -40,12 +43,33 @@ export type RootStackParamList = {
 			contentKind: Exclude<ReceiveContentKind, 'symbol'>
 			requiredSymbolIds: string[]
 		}[]
+		/** Who launched this Receive session (history source). */
+		sessionSource?: 'receive' | 'daily' | 'quick'
+		/** Wall-clock start; used for duration when finishing. */
+		sessionStartedAtMs?: number
+		/** When provided, use these questions instead of generating. */
+		prebuiltQuestions?: ReceiveQuestion[]
+		planMeta?: {
+			totalItems: number
+			mixSummary: string
+			estimateLabel: string
+		}
 	}
 	ReceiveResult: {
 		result: ReceiveSessionResult
 		settings: ReceiveSettings
 		symbolPool: string[]
 		weights?: AdaptiveWeightMap
+		durationMs?: number
+		sessionSource?: SessionSource
+	}
+	DailyResult: {
+		result: ReceiveSessionResult
+		settings: ReceiveSettings
+		symbolPool: string[]
+		durationMs: number
+		streak: StreakState
+		planMixSummary: string
 	}
 	Transmit: undefined
 	TransmitSession: {

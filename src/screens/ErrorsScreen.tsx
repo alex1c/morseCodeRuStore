@@ -32,6 +32,7 @@ import {
 	getReceiveSettings,
 	getSymbolStatsMap,
 } from '@/src/storage'
+import { wallTimeMs } from '@/src/utils/clock'
 import { spacing, typography, useTheme } from '@/src/theme'
 import type { SymbolStatsMap } from '@/src/types'
 
@@ -116,7 +117,11 @@ export function ErrorsScreen ({ navigation }: Props) {
 			baseSettings: { ...baseSettings, symbolPreset: 'weak' },
 			cooldownN: adaptiveLaunchCooldown(),
 		})
-		navigation.navigate('ReceiveSession', launch)
+		navigation.navigate('ReceiveSession', {
+			...launch,
+			sessionSource: 'receive',
+			sessionStartedAtMs: wallTimeMs(),
+		})
 	}
 
 	const startPair = (symbolIdA: string, symbolIdB: string) => {
@@ -135,7 +140,11 @@ export function ErrorsScreen ({ navigation }: Props) {
 			baseSettings: { ...baseSettings, symbolPreset: 'custom' },
 			cooldownN: pairLaunchCooldown(),
 		})
-		navigation.navigate('ReceiveSession', launch)
+		navigation.navigate('ReceiveSession', {
+			...launch,
+			sessionSource: 'receive',
+			sessionStartedAtMs: wallTimeMs(),
+		})
 	}
 
 	const startAdaptive = () => {
@@ -152,7 +161,11 @@ export function ErrorsScreen ({ navigation }: Props) {
 			baseSettings: { ...baseSettings, symbolPreset: 'adaptive' },
 			cooldownN: adaptiveLaunchCooldown(),
 		})
-		navigation.navigate('ReceiveSession', launch)
+		navigation.navigate('ReceiveSession', {
+			...launch,
+			sessionSource: 'receive',
+			sessionStartedAtMs: wallTimeMs(),
+		})
 	}
 
 	if (!enough) {
