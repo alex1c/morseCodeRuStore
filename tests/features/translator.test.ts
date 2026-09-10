@@ -3,6 +3,8 @@
  */
 
 import {
+	describeMorseCode,
+	describeMorsePattern,
 	normalizeMorseInput,
 	translateMorseToText,
 	translateTextToMorse,
@@ -66,5 +68,15 @@ describe('translator helpers', () => {
 		expect(ru.text).toBe('В')
 		expect(latin.text).toBe('W')
 		expect(ru.text).not.toBe(latin.text)
+	})
+
+	test('describeMorsePattern speaks dots and dashes in Russian', () => {
+		expect(describeMorsePattern('.-')).toBe('точка тире')
+		expect(describeMorsePattern('...')).toBe('точка точка точка')
+		expect(describeMorsePattern('-.-')).toBe('тире точка тире')
+	})
+
+	test('describeMorseCode mirrors pattern description', () => {
+		expect(describeMorseCode(['dot', 'dash'])).toBe('точка тире')
 	})
 })

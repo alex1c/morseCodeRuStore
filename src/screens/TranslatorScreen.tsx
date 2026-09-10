@@ -298,10 +298,11 @@ export function TranslatorScreen () {
 					style={styles.flex}
 				/>
 				<AppButton
-					label="International"
+					label="Международная"
 					variant={alphabet === 'LATIN' ? 'primary' : 'secondary'}
 					onPress={() => updateSetting('translatorAlphabet', 'LATIN')}
 					style={styles.flex}
+					accessibilityLabel="Международная азбука"
 				/>
 			</View>
 

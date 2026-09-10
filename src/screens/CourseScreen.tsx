@@ -68,7 +68,7 @@ export function CourseScreen ({ navigation }: Props) {
 					style={styles.switchButton}
 				/>
 				<AppButton
-					label="Latin"
+					label="Международная"
 					variant={courseId === 'latin-main' ? 'primary' : 'secondary'}
 					onPress={() => {
 						void chooseCurrentCourse('latin-main')

@@ -1,6 +1,7 @@
 /**
  * Simple SVG accuracy chart for Stats (7/30 day series).
  * Null-accuracy days render as muted gaps — never as 0%.
+ * Day labels under the chart are sparse for longer ranges.
  */
 
 import { StyleSheet, Text, View } from 'react-native'
@@ -22,6 +23,58 @@ type Props = {
 	accessibilitySummary: string
 }
 
+/** Weekday short labels for 7-day charts (Mon-first local week). */
+const WEEKDAY_SHORT_RU = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
+
+/**
+ * Pick sparse indices for under-chart day labels.
+ * 7-day: all days; 30-day: ~every 5th plus first/last.
+ */
+export function pickSparseLabelIndices (length: number): number[] {
+	if (length <= 0) {
+		return []
+	}
+	if (length <= 7) {
+		return Array.from({ length }, (_, i) => i)
+	}
+	const step = Math.max(5, Math.round(length / 6))
+	const indices = new Set<number>([0, length - 1])
+	const mid = Math.floor((length - 1) / 2)
+	indices.add(mid)
+	for (let i = step; i < length - 1; i += step) {
+		indices.add(i)
+	}
+	return [...indices].sort((a, b) => a - b)
+}
+
+/** Format YYYY-MM-DD as weekday (7d) or DD.MM (longer ranges). */
+function formatDayLabel (dateKey: string, total: number): string {
+	if (total <= 7) {
+		// Prefer weekday for week view when date parses cleanly.
+		const parsed = parseLocalDateKey(dateKey)
+		if (parsed != null) {
+			// getDay(): 0=Sun … map to Mon-first index.
+			const monFirst = (parsed.getDay() + 6) % 7
+			return WEEKDAY_SHORT_RU[monFirst] ?? dateKey.slice(8)
+		}
+		return dateKey.slice(8)
+	}
+	const parts = dateKey.split('-')
+	if (parts.length === 3) {
+		return `${parts[2]}.${parts[1]}`
+	}
+	return dateKey.slice(5)
+}
+
+function parseLocalDateKey (dateKey: string): Date | null {
+	const parts = dateKey.split('-').map(Number)
+	if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+		return null
+	}
+	const [y, m, d] = parts
+	return new Date(y, m - 1, d)
+}
+
 export function AccuracyChart ({
 	points,
 	height = 120,
@@ -37,6 +90,8 @@ export function AccuracyChart ({
 		3,
 		(width - barGap * Math.max(0, points.length - 1)) / Math.max(points.length, 1),
 	)
+	const labelIndices = pickSparseLabelIndices(points.length)
+	const labelIndexSet = new Set(labelIndices)
 
 	return (
 		<View
@@ -87,6 +142,32 @@ export function AccuracyChart ({
 					)
 				})}
 			</Svg>
+			{/* Sparse day labels — avoid crowding on 30-day series. */}
+			<View style={styles.labelRow}>
+				{points.map((point, index) => {
+					if (!labelIndexSet.has(index)) {
+						return (
+							<View
+								key={`pad-${point.dateKey}`}
+								style={[styles.labelSlot, { flex: 1 }]}
+							/>
+						)
+					}
+					return (
+						<Text
+							key={`lbl-${point.dateKey}`}
+							style={[
+								styles.dayLabel,
+								styles.labelSlot,
+								{ color: colors.textTertiary, flex: 1 },
+							]}
+							numberOfLines={1}
+						>
+							{formatDayLabel(point.dateKey, points.length)}
+						</Text>
+					)
+				})}
+			</View>
 			<Text style={[styles.hint, { color: colors.textTertiary }]}>
 				Пустые дни — без данных (не 0%)
 			</Text>
@@ -97,6 +178,18 @@ export function AccuracyChart ({
 const styles = StyleSheet.create({
 	wrap: {
 		gap: spacing.xs,
+	},
+	labelRow: {
+		flexDirection: 'row',
+		alignItems: 'flex-start',
+	},
+	labelSlot: {
+		minWidth: 0,
+	},
+	dayLabel: {
+		...typography.label,
+		textAlign: 'center',
+		fontSize: 10,
 	},
 	hint: {
 		...typography.label,

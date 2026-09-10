@@ -44,7 +44,7 @@ import { spacing, typography, useTheme } from '@/src/theme'
 
 const SECTION_TABS: { id: ReferenceSection; label: string }[] = [
 	{ id: 'RU', label: 'Русский' },
-	{ id: 'LATIN', label: 'International' },
+	{ id: 'LATIN', label: 'Международная' },
 	{ id: 'digits', label: 'Цифры' },
 	{ id: 'punctuation', label: 'Знаки' },
 ]
@@ -432,6 +432,19 @@ export function ReferenceScreen () {
 					) : null}
 					{hasMnemonic || isLetterSection(section) ? (
 						<VisualMnemonicCard symbolId={selected.id} />
+					) : null}
+					{/* Ё shares the same Morse signal as Е — say so explicitly. */}
+					{selected.id === 'ru-yo' ? (
+						<Text style={{ color: colors.textSecondary }}>
+							В Морзе используется тот же сигнал, что у Е.
+						</Text>
+					) : null}
+					{/* Ъ often falls back to the basic card; note shared-pattern context. */}
+					{selected.id === 'ru-hard' ? (
+						<Text style={{ color: colors.textSecondary }}>
+							Отдельный образ может отсутствовать — смотрите код
+							и эквивалент, если есть.
+						</Text>
 					) : null}
 					{equivalent ? (
 						<Text style={{ color: colors.textSecondary }}>

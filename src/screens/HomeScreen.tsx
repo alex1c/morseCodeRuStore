@@ -245,9 +245,18 @@ export function HomeScreen ({ navigation }: Props) {
 					Изучено символов: {knownCount}. Короткие шаги: сначала знакомство, потом слух.
 				</Text>
 				<AppButton
-					label={hasStarted ? 'Продолжить' : 'Начать'}
+					label={
+						hasStarted
+							? 'Продолжить обучение'
+							: 'Начать первый урок'
+					}
 					onPress={() => navigation.navigate('Lesson')}
 					style={styles.continueButton}
+					accessibilityLabel={
+						hasStarted
+							? 'Продолжить обучение'
+							: 'Начать первый урок'
+					}
 				/>
 			</SurfaceCard>
 
@@ -285,7 +294,7 @@ export function HomeScreen ({ navigation }: Props) {
 							style={[styles.streakLine, { color: colors.primary }]}
 							accessibilityLabel={streakLabel}
 						>
-							🔥 {streakLabel}
+							{streakLabel}
 						</Text>
 						<View style={styles.weekRow}>
 							{weekStrip.map((day) => (
@@ -336,7 +345,7 @@ export function HomeScreen ({ navigation }: Props) {
 							style={[styles.streakLine, { color: colors.primary }]}
 							accessibilityLabel={streakLabel}
 						>
-							🔥 {streakLabel}
+							{streakLabel}
 						</Text>
 						<View style={styles.weekRow}>
 							{weekStrip.map((day) => (

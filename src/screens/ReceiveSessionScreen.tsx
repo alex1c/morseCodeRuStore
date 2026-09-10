@@ -1052,7 +1052,7 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 				</View>
 				<View style={styles.row}>
 					<AppButton
-						label={`${settings.toneFrequencyHz} Hz −`}
+						label={`${settings.toneFrequencyHz} Гц −`}
 						variant="secondary"
 						disabled={controlsLocked}
 						style={styles.flex}

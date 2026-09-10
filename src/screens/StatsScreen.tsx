@@ -405,7 +405,7 @@ export function StatsScreen ({ navigation }: Props) {
 				</Text>
 				{showBothCourses ? (
 					<Text style={[styles.meta, { color: colors.textTertiary }]}>
-						LATIN: изучено{' '}
+						Международная: изучено{' '}
 						{knownLettersForCourse(
 							progress?.knownSymbolIds ?? [],
 							'latin-main',

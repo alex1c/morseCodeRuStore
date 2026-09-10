@@ -60,11 +60,48 @@ let migrated = false
 let symbolStatsQueue: Promise<unknown> = Promise.resolve()
 let transmitStatsQueue: Promise<unknown> = Promise.resolve()
 
-/** Test helper — allow re-running migration logic. */
-export function resetStorageMigrationFlagForTests (): void {
+/**
+ * Clear in-memory migration / write-queue flags.
+ * Used after atomic restore and in tests so the next read re-runs migration.
+ */
+export function resetStorageMigrationFlag (): void {
 	migrated = false
 	symbolStatsQueue = Promise.resolve()
 	transmitStatsQueue = Promise.resolve()
+}
+
+/** @deprecated Prefer resetStorageMigrationFlag — kept for existing tests. */
+export function resetStorageMigrationFlagForTests (): void {
+	resetStorageMigrationFlag()
+}
+
+/**
+ * Read all Morse trainer AsyncStorage keys as a raw string snapshot.
+ * Used for atomic backup restore rollback.
+ */
+export async function readStorageSnapshot (): Promise<
+	Record<string, string | null>
+> {
+	const keys = Object.values(STORAGE_KEYS)
+	const pairs = await AsyncStorage.multiGet(keys)
+	const snapshot: Record<string, string | null> = {}
+	for (const [key, value] of pairs) {
+		snapshot[key] = value
+	}
+	return snapshot
+}
+
+/**
+ * Write a batch of key/value pairs (AsyncStorage.multiSet).
+ * Caller supplies fully serialized JSON strings.
+ */
+export async function applyStorageSnapshot (
+	entries: [string, string][],
+): Promise<void> {
+	if (entries.length === 0) {
+		return
+	}
+	await AsyncStorage.multiSet(entries)
 }
 
 async function readJson<T> (key: string): Promise<T | null> {

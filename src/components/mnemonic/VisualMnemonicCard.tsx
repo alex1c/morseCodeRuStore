@@ -3,6 +3,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg'
 
 import { getSymbolById, sequenceToPattern } from '@/src/domain/morse'
 import { getVisualMnemonicBySymbolId } from '@/src/domain/visual-mnemonic'
+import { describeMorsePattern } from '@/src/features/translator'
 import { spacing, typography, useTheme } from '@/src/theme'
 
 type VisualMnemonicCardProps = {
@@ -21,10 +22,19 @@ export function VisualMnemonicCard ({
 	if (!symbol) {
 		return null
 	}
+
+	const pattern = sequenceToPattern(symbol.code)
+	// Speak Morse as «точка тире» instead of reading "." / "-" literally.
+	const patternSpoken = describeMorsePattern(pattern)
+	const accessibilityLabel =
+		`Символ ${symbol.character}, код Морзе: ${patternSpoken}`
+
 	const mnemonic = getVisualMnemonicBySymbolId(symbolId)
 	if (!mnemonic) {
 		return (
 			<View
+				accessible={true}
+				accessibilityLabel={accessibilityLabel}
 				style={[
 					styles.fallback,
 					{
@@ -37,8 +47,9 @@ export function VisualMnemonicCard ({
 					{symbol.character}
 				</Text>
 				<Text style={[styles.pattern, { color: colors.textSecondary }]}>
-					{sequenceToPattern(symbol.code)}
+					{pattern}
 				</Text>
+				{/* Honest fallback — no mnemonic art for this symbol yet. */}
 				<Text style={[styles.caption, { color: colors.textTertiary }]}>
 					Базовая карточка (мнемоника в разработке)
 				</Text>
@@ -48,6 +59,8 @@ export function VisualMnemonicCard ({
 
 	return (
 		<View
+			accessible={true}
+			accessibilityLabel={accessibilityLabel}
 			style={[
 				styles.wrap,
 				{
@@ -97,9 +110,13 @@ export function VisualMnemonicCard ({
 			</Text>
 			{showPattern ? (
 				<Text style={[styles.pattern, { color: colors.textSecondary }]}>
-					{sequenceToPattern(symbol.code)}
+					{pattern}
 				</Text>
 			) : null}
+			{/* Soft invitation — does not claim the image guarantees memory. */}
+			<Text style={[styles.caption, { color: colors.textTertiary }]}>
+				Запомнить образ
+			</Text>
 		</View>
 	)
 }

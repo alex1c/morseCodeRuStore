@@ -138,7 +138,7 @@ export function TransmitScreen ({ navigation }: Props) {
 				{(['RU', 'LATIN'] as const).map((value) => (
 					<AppButton
 						key={value}
-						label={value === 'RU' ? 'Русский' : 'Latin'}
+						label={value === 'RU' ? 'Русский' : 'Международная'}
 						variant={settings.alphabet === value ? 'primary' : 'secondary'}
 						onPress={() => {
 							void persist({
@@ -317,7 +317,7 @@ export function TransmitScreen ({ navigation }: Props) {
 			</View>
 
 			<Text style={[styles.label, { color: colors.textSecondary }]}>
-				Тон {settings.toneFrequencyHz} Hz
+				Тон {settings.toneFrequencyHz} Гц
 			</Text>
 			<View style={styles.row}>
 				<AppButton
