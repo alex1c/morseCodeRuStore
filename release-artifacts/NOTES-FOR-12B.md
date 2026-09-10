@@ -13,10 +13,7 @@ Phase 12A prepares release assets; **do not** create keystores in this repo.
 ## Before signing
 
 1. Publish privacy HTML to `https://forest-music.ru/privacy/morse-trainer` (source: `release-artifacts/privacy/morse-trainer.html`).
-2. Drop approved master icon at `assets/icon_gpt.png`, then:
-   - `npm run prepare:icons`
-   - sync `assets/icon.png` + adaptive icons from the same master
-   - produce `release-artifacts/icon-512.png` (exact 512×512)
+2. Master icon is already applied (`assets/icon_gpt.png` → launcher / adaptive / `release-artifacts/icon-512.png`).
 3. Capture screenshots on `ForestMusic_Fast_API35`, crop to 1080×1920, run `npm run validate:screenshots`.
 
 ## Signing (local only)
