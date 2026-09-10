@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Политика конфиденциальности — Морзе-тренер</title>
+	<style>
+		:root {
+			--bg: #f4f7f6;
+			--text: #1b2a2e;
+			--muted: #5a6f74;
+			--accent: #1f6f68;
+			--card: #ffffff;
+			--border: #d2dcd8;
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+			background: var(--bg);
+			color: var(--text);
+			line-height: 1.55;
+		}
+		main {
+			max-width: 40rem;
+			margin: 0 auto;
+			padding: 2rem 1.25rem 3rem;
+		}
+		h1 {
+			font-size: 1.75rem;
+			margin: 0 0 0.35rem;
+			letter-spacing: -0.02em;
+		}
+		.lead {
+			color: var(--muted);
+			margin: 0 0 1.75rem;
+			font-size: 0.95rem;
+		}
+		section {
+			background: var(--card);
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 1.15rem 1.25rem;
+			margin-bottom: 1rem;
+		}
+		h2 {
+			font-size: 1.1rem;
+			margin: 0 0 0.65rem;
+		}
+		p, ul { margin: 0 0 0.75rem; }
+		ul { padding-left: 1.2rem; }
+		li { margin-bottom: 0.35rem; }
+		a { color: var(--accent); }
+		.note {
+			font-size: 0.9rem;
+			color: var(--muted);
+		}
+		footer {
+			margin-top: 1.5rem;
+			font-size: 0.85rem;
+			color: var(--muted);
+		}
+		code {
+			font-size: 0.9em;
+			background: #e8eeec;
+			padding: 0.1em 0.35em;
+			border-radius: 4px;
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Морзе-тренер</h1>
+		<p class="lead">
+			Информация о конфиденциальности для Android-приложения
+			«Морзе-тренер»
+			(пакет <code>com.calculatorplatform.morsecodetrainer</code>).
+			Разработчик: ForestMusic.
+		</p>
+
+		<section>
+			<h2>Кратко</h2>
+			<ul>
+				<li>Приложение <strong>не требует регистрации</strong> и не создаёт учётную запись.</li>
+				<li>Учебный прогресс, статистика занятий, настройки и история тренировок хранятся
+					<strong>локально на устройстве</strong>.</li>
+				<li>Собственного сервера пользовательского прогресса у приложения нет:
+					мы не отправляем ваш курс, ответы и тексты перевода на свой backend.</li>
+				<li>Для показа рекламы и агрегированной технической/продуктовой аналитики
+					используются сервисы Яндекса.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Данные на устройстве</h2>
+			<ul>
+				<li>предпочтения (алфавит, тема, скорость сигнала);</li>
+				<li>прогресс обучения и результаты уроков;</li>
+				<li>статистика по символам (для адаптации тренировок);</li>
+				<li>серия дней / Daily, история сессий;</li>
+				<li>настройки режимов приёма, передачи и инструментов.</li>
+			</ul>
+			<p>
+				Текст в <strong>Переводчике</strong> не сохраняется — он существует только
+				в памяти во время работы экрана.
+			</p>
+			<p>
+				<strong>Резервная копия</strong> создаётся только по вашему действию
+				и сохраняется/передаётся средствами системы (Share / файлы) — не загружается
+				автоматически на сервер ForestMusic.
+			</p>
+		</section>
+
+		<section>
+			<h2>Реклама</h2>
+			<p>
+				В приложении используется <strong>Yandex Mobile Ads</strong> (РСЯ)
+				для показа баннеров на спокойных экранах и редкой межстраничной рекламы
+				после завершённых тренировок. Вознаграждённая реклама не используется.
+			</p>
+			<p class="note">
+				Сторонний SDK может обрабатывать технические и рекламные данные
+				в соответствии с политикой Яндекса. Основной учебный функционал работает
+				без сети; реклама не блокирует уроки и тренировки.
+			</p>
+		</section>
+
+		<section>
+			<h2>Аналитика</h2>
+			<p>
+				Подключена <strong>AppMetrica</strong> (Яндекс). Приложение отправляет
+				обезличенные события продукта (например: открытие приложения, старт/завершение
+				урока или тренировки, открытие инструментов, успех/ошибка резервной копии)
+				с грубыми категориями параметров (алфавит, режим ответа, корзины WPM/точности).
+			</p>
+			<p>
+				Мы <strong>не</strong> передаём через наш слой аналитики:
+				текст переводчика, ответы пользователя, сырые точки/тире,
+				слова и фразы ввода, содержимое резервных копий, списки «слабых» букв
+				и конкретные пары путаницы.
+			</p>
+			<p class="note">
+				Подробности обработки данных SDK см. в актуальной документации AppMetrica / Яндекса.
+			</p>
+		</section>
+
+		<section>
+			<h2>Контакты</h2>
+			<p>
+				По вопросам конфиденциальности и поддержки:
+				<a href="mailto:rustore-alex1c@yandex.ru">rustore-alex1c@yandex.ru</a>
+			</p>
+			<p class="note">
+				Сайт разработчика:
+				<a href="https://forest-music.ru">https://forest-music.ru</a>
+			</p>
+		</section>
+
+		<footer>
+			<p>
+				Канонический URL этой политики:
+				<a href="https://forest-music.ru/privacy/morse-trainer">
+					https://forest-music.ru/privacy/morse-trainer
+				</a>
+			</p>
+			<p>
+				Исходный HTML для публикации в ForestMusic privacy infrastructure
+				хранится в репозитории приложения
+				(<code>release-artifacts/privacy/morse-trainer.html</code>).
+			</p>
+			<p>Версия приложения, к которой относится этот текст: 1.0.0.</p>
+		</footer>
+	</main>
+</body>
+</html>

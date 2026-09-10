@@ -26,6 +26,12 @@ The Yandex Mobile Ads SDK may process technical and advertising-related data acc
 
 AppMetrica receives **technical / aggregated product analytics** through our typed event layer (semantic event names + coarse allowlisted enums/buckets only). Location tracking and advertising-identifier tracking are disabled in our activation options where the SDK allows.
 
+## PUBLIC PRIVACY PAGE
+
+Canonical URL: `https://forest-music.ru/privacy/morse-trainer`
+
+Source HTML for ForestMusic infrastructure: `release-artifacts/privacy/morse-trainer.html`
+
 ## NEVER SENT BY OUR EVENT LAYER
 
 Our `trackAnalyticsEvent` / sanitize layer must never emit:

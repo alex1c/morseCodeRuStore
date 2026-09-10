@@ -7,6 +7,7 @@
 import { useCallback, useState } from 'react'
 import {
 	Alert,
+	Linking,
 	StyleSheet,
 	Text,
 	View,
@@ -21,6 +22,8 @@ import {
 	APP_DEVELOPER,
 	APP_DISPLAY_NAME,
 	APP_VERSION,
+	DEVELOPER_WEBSITE_URL,
+	PRIVACY_POLICY_URL,
 } from '@/src/constants/app'
 import {
 	exportBackupToShare,
@@ -530,16 +533,24 @@ export function SettingsScreen ({ navigation }: Props) {
 				<Text style={[styles.aboutLine, { color: colors.textSecondary }]}>
 					{APP_DEVELOPER}
 				</Text>
-				<Text
-					style={[
-						styles.aboutLine,
-						styles.rowGap,
-						{ color: colors.textTertiary },
-					]}
-				>
-					Политика конфиденциальности и сайт разработчика появятся
-					после публикации.
-				</Text>
+				<AppButton
+					label="Политика конфиденциальности"
+					variant="secondary"
+					onPress={() => {
+						void Linking.openURL(PRIVACY_POLICY_URL)
+					}}
+					style={styles.fullButton}
+					accessibilityLabel="Открыть политику конфиденциальности"
+				/>
+				<AppButton
+					label="Сайт разработчика"
+					variant="ghost"
+					onPress={() => {
+						void Linking.openURL(DEVELOPER_WEBSITE_URL)
+					}}
+					style={styles.fullButton}
+					accessibilityLabel="Открыть сайт разработчика"
+				/>
 			</SurfaceCard>
 
 			<AdBanner placement="settings" />

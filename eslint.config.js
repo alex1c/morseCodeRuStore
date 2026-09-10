@@ -7,11 +7,14 @@ module.exports = defineConfig([
 	{
 		ignores: [
 			'dist/*',
+			'dist-smoke/*',
 			'node_modules/*',
 			'.expo/*',
 			'android/*',
 			'ios/*',
 			'coverage/*',
+			'scripts/*',
+			'release-artifacts/**/*.html',
 		],
 	},
 ])
