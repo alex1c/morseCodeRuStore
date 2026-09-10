@@ -7,6 +7,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
 import { useCallback, useState } from 'react'
 
+import {
+	ANALYTICS_EVENTS,
+	trackAnalyticsEvent,
+} from '@/src/analytics'
+import { AdBanner } from '@/src/features/ads'
 import { Screen } from '@/src/components/Screen'
 import {
 	AppButton,
@@ -14,6 +19,7 @@ import {
 	SecondaryLink,
 	SurfaceCard,
 } from '@/src/components/ui'
+import { APP_DISPLAY_NAME } from '@/src/constants/app'
 import type { RootStackParamList } from '@/src/navigation/types'
 import {
 	WEEKDAY_LABELS_RU,
@@ -167,6 +173,8 @@ export function HomeScreen ({ navigation }: Props) {
 			baseSettings: { ...receiveBase, symbolPreset: 'weak' },
 			cooldownN: adaptiveLaunchCooldown(),
 		})
+		// Privacy-safe: no weak symbol list in the payload.
+		trackAnalyticsEvent(ANALYTICS_EVENTS.WEAK_TRAINING_STARTED)
 		navigation.navigate('ReceiveSession', {
 			...launch,
 			sessionSource: 'receive',
@@ -181,6 +189,7 @@ export function HomeScreen ({ navigation }: Props) {
 			statsMap,
 			receiveBase,
 		})
+		trackAnalyticsEvent(ANALYTICS_EVENTS.DAILY_STARTED)
 		navigation.navigate('ReceiveSession', {
 			settings: launch.settings,
 			symbolPool: launch.symbolPool,
@@ -215,7 +224,7 @@ export function HomeScreen ({ navigation }: Props) {
 		<Screen contentStyle={styles.content}>
 			<View style={styles.hero}>
 				<Text style={[styles.appName, { color: colors.textPrimary }]}>
-					Тренажёр азбуки Морзе
+					{APP_DISPLAY_NAME}
 				</Text>
 				<Text
 					style={[styles.tagline, { color: colors.textSecondary }]}
@@ -476,6 +485,9 @@ export function HomeScreen ({ navigation }: Props) {
 					onPress={() => navigation.navigate('Settings')}
 				/>
 			</SurfaceCard>
+
+			{/* Calm-screen banner — after primary + secondary content. */}
+			<AdBanner placement="home" />
 		</Screen>
 	)
 }

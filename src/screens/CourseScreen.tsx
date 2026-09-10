@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import { COURSES, getSymbolById, type CourseId } from '@/src/domain'
+import { AdBanner } from '@/src/features/ads'
 import {
 	chooseCurrentCourse,
 	ensureCourseDefaults,
@@ -133,6 +134,8 @@ export function CourseScreen ({ navigation }: Props) {
 					)
 				})}
 			</View>
+
+			<AdBanner placement="course" />
 		</Screen>
 	)
 }

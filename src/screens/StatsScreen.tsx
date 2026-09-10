@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { Screen } from '@/src/components/Screen'
 import { AccuracyChart } from '@/src/components/stats/AccuracyChart'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
+import { AdBanner } from '@/src/features/ads'
 import {
 	WEEKDAY_LABELS_RU,
 	addLocalDays,
@@ -290,6 +291,7 @@ export function StatsScreen ({ navigation }: Props) {
 						style={styles.topGap}
 					/>
 				</SurfaceCard>
+				<AdBanner placement="stats" />
 			</Screen>
 		)
 	}
@@ -530,6 +532,8 @@ export function StatsScreen ({ navigation }: Props) {
 					))
 				)}
 			</SurfaceCard>
+
+			<AdBanner placement="stats" />
 		</Screen>
 	)
 }

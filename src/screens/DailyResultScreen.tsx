@@ -2,9 +2,16 @@
  * Daily training result — educational tone (Phase 8 §27).
  */
 
+import { useEffect } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
+import {
+	ANALYTICS_EVENTS,
+	accuracyBucket,
+	mapAlphabet,
+	trackAnalyticsEvent,
+} from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
@@ -12,6 +19,7 @@ import {
 	getSymbolById,
 	selectWeakSymbolPool,
 } from '@/src/domain'
+import { goHomeAfterResult } from '@/src/features/ads'
 import { buildDailyLaunch } from '@/src/features/daily'
 import {
 	adaptiveLaunchCooldown,
@@ -40,6 +48,14 @@ export function DailyResultScreen ({ navigation, route }: Props) {
 	const { result, settings, durationMs, streak, planMixSummary } =
 		route.params
 
+	// DailyResult only appears after a finished daily — fire completion once.
+	useEffect(() => {
+		trackAnalyticsEvent(ANALYTICS_EVENTS.DAILY_COMPLETED, {
+			alphabet: mapAlphabet(settings.alphabet),
+			accuracy_bucket: accuracyBucket(result.accuracyPercent),
+		})
+	}, [result.accuracyPercent, settings.alphabet])
+
 	const strong = result.strongSymbolIds
 		.map((id) => getSymbolById(id)?.character ?? '?')
 		.join(', ')
@@ -66,6 +82,7 @@ export function DailyResultScreen ({ navigation, route }: Props) {
 			statsMap: stats,
 			receiveBase: receive,
 		})
+		trackAnalyticsEvent(ANALYTICS_EVENTS.DAILY_STARTED)
 		navigation.replace('ReceiveSession', {
 			settings: launch.settings,
 			symbolPool: launch.symbolPool,
@@ -108,6 +125,7 @@ export function DailyResultScreen ({ navigation, route }: Props) {
 			baseSettings: { ...receive, symbolPreset: 'weak' },
 			cooldownN: adaptiveLaunchCooldown(),
 		})
+		trackAnalyticsEvent(ANALYTICS_EVENTS.WEAK_TRAINING_STARTED)
 		navigation.replace('ReceiveSession', {
 			...launch,
 			sessionSource: 'receive',
@@ -177,7 +195,13 @@ export function DailyResultScreen ({ navigation, route }: Props) {
 				<AppButton
 					label="На главный"
 					variant="secondary"
-					onPress={() => navigation.navigate('Home')}
+					onPress={() => {
+						// DailyResult is the first-completion reward moment —
+						// always exclude interstitial from this Home path.
+						void goHomeAfterResult(navigation, {
+							isDailyFirstCompletionToday: true,
+						})
+					}}
 				/>
 			</View>
 		</Screen>

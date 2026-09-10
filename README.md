@@ -1,6 +1,6 @@
-# Тренажёр азбуки Морзе
+# Морзе-тренер
 
-Android-first обучающий тренажёр азбуки Морзе (ForestMusic / RuStore).
+Тренажёр азбуки Морзе — Android-first обучающее приложение (ForestMusic / RuStore).
 
 ## Phase 1–2
 

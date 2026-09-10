@@ -8,6 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
 
 import { Screen } from '@/src/components/Screen'
+import { ANALYTICS_EVENTS, trackAnalyticsEvent } from '@/src/analytics'
 import {
 	buildAdaptiveSessionPool,
 	hasEnoughAdaptiveData,
@@ -90,6 +91,7 @@ export function QuickPracticeScreen ({ navigation }: Props) {
 						cooldownN: adaptiveLaunchCooldown(),
 					})
 					launchedRef.current = true
+					trackAnalyticsEvent(ANALYTICS_EVENTS.QUICK_PRACTICE_STARTED)
 					navigation.replace('ReceiveSession', {
 						...launch,
 						sessionSource: 'quick',

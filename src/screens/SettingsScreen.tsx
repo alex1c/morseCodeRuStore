@@ -14,6 +14,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
 
+import { ANALYTICS_EVENTS, trackAnalyticsEvent } from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
@@ -26,6 +27,7 @@ import {
 	pickAndRestoreBackup,
 	resetProgressKeepingPreferences,
 } from '@/src/domain/backup'
+import { AdBanner } from '@/src/features/ads'
 import { useAppBootstrap } from '@/src/features/bootstrap/AppBootstrap'
 import type { RootStackParamList } from '@/src/navigation/types'
 import {
@@ -148,6 +150,8 @@ export function SettingsScreen ({ navigation }: Props) {
 			if (!result.ok) {
 				setStatusMessage(result.error)
 			} else {
+				// Success only — never send filename/path.
+				trackAnalyticsEvent(ANALYTICS_EVENTS.BACKUP_EXPORT_SUCCESS)
 				setStatusMessage('Резервная копия готова к сохранению.')
 			}
 		} finally {
@@ -174,10 +178,16 @@ export function SettingsScreen ({ navigation }: Props) {
 							try {
 								const result = await pickAndRestoreBackup()
 								if (result.ok) {
+									trackAnalyticsEvent(
+										ANALYTICS_EVENTS.BACKUP_RESTORE_SUCCESS,
+									)
 									await refreshPreferences()
 									await reload()
 									setStatusMessage('Данные восстановлены.')
 								} else if (!result.canceled) {
+									trackAnalyticsEvent(
+										ANALYTICS_EVENTS.BACKUP_RESTORE_FAILED,
+									)
 									setStatusMessage(result.error)
 								}
 							} finally {
@@ -481,13 +491,19 @@ export function SettingsScreen ({ navigation }: Props) {
 				) : null}
 			</SurfaceCard>
 
-			{/* Privacy */}
+			{/* Privacy — honest local + Yandex Ads / AppMetrica wording */}
 			<Text style={[styles.section, { color: colors.textSecondary }]}>
 				Ваши данные
 			</Text>
 			<SurfaceCard style={styles.card}>
 				<Text style={[styles.privacyLine, { color: colors.textPrimary }]}>
-					• Прогресс хранится локально на устройстве
+					Учебный прогресс, статистика занятий и введённые вами тексты
+					в «{APP_DISPLAY_NAME}» хранятся локально на устройстве.
+				</Text>
+				<Text style={[styles.privacyLine, { color: colors.textPrimary }]}>
+					Для показа рекламы и агрегированной технической/продуктовой
+					аналитики приложение использует сервисы Яндекса (рекламная
+					сеть и AppMetrica).
 				</Text>
 				<Text style={[styles.privacyLine, { color: colors.textPrimary }]}>
 					• Аккаунт не требуется
@@ -525,6 +541,8 @@ export function SettingsScreen ({ navigation }: Props) {
 					после публикации.
 				</Text>
 			</SurfaceCard>
+
+			<AdBanner placement="settings" />
 		</Screen>
 	)
 }

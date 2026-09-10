@@ -1,8 +1,17 @@
+import { useEffect } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
+import {
+	ANALYTICS_EVENTS,
+	accuracyBucket,
+	mapCourse,
+	sanitizeLessonId,
+	trackAnalyticsEvent,
+} from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
+import { goHomeAfterResult } from '@/src/features/ads'
 import { getLessonById, getSymbolById, LESSON_PASS_THRESHOLD_PERCENT } from '@/src/domain'
 import type { RootStackParamList } from '@/src/navigation/types'
 import { spacing, typography, useTheme } from '@/src/theme'
@@ -15,6 +24,20 @@ export function LessonResultScreen ({ navigation, route }: Props) {
 	const weakChars = route.params.weakSymbolIds
 		.map((id) => getSymbolById(id)?.character ?? '?')
 		.join(' ')
+
+	// Privacy-safe lesson completion — buckets only, no answers.
+	useEffect(() => {
+		const lessonId = sanitizeLessonId(route.params.lessonId)
+		trackAnalyticsEvent(ANALYTICS_EVENTS.LESSON_COMPLETED, {
+			course: mapCourse(lesson?.courseId ?? 'ru-main'),
+			...(lessonId ? { lesson_id: lessonId } : {}),
+			score_bucket: accuracyBucket(route.params.accuracyPercent),
+		})
+	}, [
+		lesson?.courseId,
+		route.params.accuracyPercent,
+		route.params.lessonId,
+	])
 
 	return (
 		<Screen>
@@ -60,7 +83,9 @@ export function LessonResultScreen ({ navigation, route }: Props) {
 				<AppButton
 					label="На главный экран"
 					variant="secondary"
-					onPress={() => navigation.navigate('Home')}
+					onPress={() => {
+						void goHomeAfterResult(navigation)
+					}}
 				/>
 			</View>
 		</Screen>

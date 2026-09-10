@@ -14,10 +14,12 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useFocusEffect } from '@react-navigation/native'
 
+import { ANALYTICS_EVENTS, trackAnalyticsEvent } from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { VisualMnemonicCard } from '@/src/components/mnemonic/VisualMnemonicCard'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import { sequenceToPattern, type MorseSymbol } from '@/src/domain'
+import { AdBanner } from '@/src/features/ads'
 import { useAppBootstrap } from '@/src/features/bootstrap/AppBootstrap'
 import {
 	FLASHLIGHT_MAX_WPM,
@@ -97,6 +99,7 @@ export function ReferenceScreen () {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true
+			trackAnalyticsEvent(ANALYTICS_EVENTS.REFERENCE_OPENED)
 			void (async () => {
 				const [tools, progress] = await Promise.all([
 					getToolSettings(),
@@ -177,6 +180,10 @@ export function ReferenceScreen () {
 	const handlePlaySymbol = async (symbol: MorseSymbol) => {
 		setPlayError(null)
 		setPlaying(true)
+		// Mode enum only — never send the symbol character/code.
+		trackAnalyticsEvent(ANALYTICS_EVENTS.OUTPUT_MODE_USED, {
+			output_mode: settings.outputMode,
+		})
 		const result = await output.play({
 			mode: settings.outputMode,
 			code: symbol.code,
@@ -464,6 +471,8 @@ export function ReferenceScreen () {
 					/>
 				</SurfaceCard>
 			) : null}
+
+			<AdBanner placement="reference" />
 		</Screen>
 	)
 }

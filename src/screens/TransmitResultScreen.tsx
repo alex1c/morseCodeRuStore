@@ -2,11 +2,21 @@
  * Transmit session result summary.
  */
 
+import { useEffect } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
+import {
+	ANALYTICS_EVENTS,
+	accuracyBucket,
+	mapAlphabet,
+	sessionLengthBucket,
+	trackAnalyticsEvent,
+	wpmBucket,
+} from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
+import { goHomeAfterResult } from '@/src/features/ads'
 import {
 	getSymbolById,
 	timingSummaryLabelRu,
@@ -24,6 +34,24 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TransmitResult'>
 export function TransmitResultScreen ({ navigation, route }: Props) {
 	const { colors } = useTheme()
 	const { result, settings, symbolPool } = route.params
+
+	// Transmit completion — rhythm as coarse bucket, never raw key timings.
+	useEffect(() => {
+		trackAnalyticsEvent(ANALYTICS_EVENTS.TRANSMIT_COMPLETED, {
+			alphabet: mapAlphabet(settings.alphabet),
+			session_length_bucket: sessionLengthBucket(settings.sessionLength),
+			wpm_bucket: wpmBucket(settings.characterWpm),
+			accuracy_bucket: accuracyBucket(result.accuracyPercent),
+			rhythm_quality_bucket:
+				result.timingSummary === 'good' ? 'good' : 'needs_practice',
+		})
+	}, [
+		result.accuracyPercent,
+		result.timingSummary,
+		settings.alphabet,
+		settings.characterWpm,
+		settings.sessionLength,
+	])
 
 	const errors = result.errorCounts
 		.map((item) => {
@@ -113,7 +141,9 @@ export function TransmitResultScreen ({ navigation, route }: Props) {
 				<AppButton
 					label="На главный экран"
 					variant="secondary"
-					onPress={() => navigation.navigate('Home')}
+					onPress={() => {
+						void goHomeAfterResult(navigation)
+					}}
 				/>
 			</View>
 		</Screen>

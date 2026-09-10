@@ -15,6 +15,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 
+import {
+	ANALYTICS_EVENTS,
+	mapAlphabet,
+	sessionLengthBucket,
+	trackAnalyticsEvent,
+	wpmBucket,
+} from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
@@ -28,6 +35,7 @@ import {
 	type AlignmentResult,
 	type MorseElement,
 } from '@/src/domain'
+import { setTrainingActive } from '@/src/features/ads'
 import { createSymbolPlaybackController } from '@/src/features/playback'
 import {
 	buildReceiveSessionSummary,
@@ -328,6 +336,20 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 			route.params.settings.contentKind === 'symbol'
 		previousSymbolRef.current =
 			resolvedSession.questions[0]?.symbolId ?? null
+		const source = route.params.sessionSource ?? 'receive'
+		const settingsSnapshot = route.params.settings
+		// Session start events — coarse enums only (no content/answers).
+		if (source === 'receive') {
+			trackAnalyticsEvent(ANALYTICS_EVENTS.RECEIVE_STARTED, {
+				alphabet: mapAlphabet(settingsSnapshot.alphabet),
+				content_kind: settingsSnapshot.contentKind,
+				answer_mode: settingsSnapshot.answerMode,
+				session_length_bucket: sessionLengthBucket(
+					settingsSnapshot.sessionLength,
+				),
+				wpm_bucket: wpmBucket(settingsSnapshot.characterWpm),
+			})
+		}
 		const started = applyMachine({
 			type: 'START',
 			questions: resolvedSession.questions,
@@ -348,6 +370,8 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 		playQuestion,
 		resolvedSession.questions,
 		route.params.prebuiltQuestions,
+		route.params.sessionSource,
+		route.params.settings,
 		route.params.settings.contentKind,
 		route.params.settings.sessionLength,
 		startError,
@@ -459,8 +483,10 @@ export function ReceiveSessionScreen ({ navigation, route }: Props) {
 
 	useFocusEffect(
 		useCallback(() => {
+			setTrainingActive(true)
 			const playback = playbackRef.current
 			return () => {
+				setTrainingActive(false)
 				clearAutoAdvance()
 				playGenerationRef.current += 1
 				void playback.stop()

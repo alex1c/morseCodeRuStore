@@ -2,6 +2,7 @@
  * Root application entry — theme + bootstrap + navigation.
  */
 
+import { useEffect } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
@@ -9,6 +10,7 @@ import {
 	AppBootstrapProvider,
 	useAppBootstrap,
 } from '@/src/features/bootstrap/AppBootstrap'
+import { startMonetizationAndAnalytics } from '@/src/features/bootstrap/monetizationBootstrap'
 import { TorchHost } from '@/src/features/morseOutput'
 import { RootNavigator } from '@/src/navigation'
 import { ThemeProvider } from '@/src/theme'
@@ -31,6 +33,11 @@ function AppShell () {
 }
 
 export default function App () {
+	// Fire-and-forget Ads + AppMetrica — never block first paint.
+	useEffect(() => {
+		startMonetizationAndAnalytics()
+	}, [])
+
 	return (
 		<SafeAreaProvider>
 			<AppBootstrapProvider>

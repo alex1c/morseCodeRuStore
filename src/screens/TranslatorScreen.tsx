@@ -15,8 +15,10 @@ import { Ionicons } from '@expo/vector-icons'
 import * as Clipboard from 'expo-clipboard'
 import { useFocusEffect } from '@react-navigation/native'
 
+import { ANALYTICS_EVENTS, trackAnalyticsEvent } from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
+import { AdBanner } from '@/src/features/ads'
 import {
 	RECEIVE_SPACING_OPTIONS,
 	RECEIVE_TONE_MAX,
@@ -92,6 +94,7 @@ export function TranslatorScreen () {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true
+			trackAnalyticsEvent(ANALYTICS_EVENTS.TRANSLATOR_OPENED)
 			void (async () => {
 				const stored = await getToolSettings()
 				if (!active) {
@@ -223,6 +226,10 @@ export function TranslatorScreen () {
 		}
 		setPlayError(null)
 		setPlaying(true)
+		// Mode enum only — never send translator text.
+		trackAnalyticsEvent(ANALYTICS_EVENTS.OUTPUT_MODE_USED, {
+			output_mode: settings.outputMode,
+		})
 		const result = await output.play({
 			mode: settings.outputMode,
 			text: playbackSourceText,
@@ -636,6 +643,8 @@ export function TranslatorScreen () {
 					) : null}
 				</>
 			) : null}
+
+			<AdBanner placement="translator" />
 		</Screen>
 	)
 }

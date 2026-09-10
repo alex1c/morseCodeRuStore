@@ -11,6 +11,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Ionicons } from '@expo/vector-icons'
 
+import { ANALYTICS_EVENTS, trackAnalyticsEvent } from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { VisualMnemonicCard } from '@/src/components/mnemonic/VisualMnemonicCard'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
@@ -21,6 +22,7 @@ import {
 	type LearningActionRoute,
 	type LearningTopic,
 } from '@/src/domain'
+import { AdBanner } from '@/src/features/ads'
 import { getSharedMorseOutputController } from '@/src/features/morseOutput'
 import type { RootStackParamList } from '@/src/navigation/types'
 import { spacing, typography, useTheme } from '@/src/theme'
@@ -176,6 +178,7 @@ export function LearningScreen () {
 
 	useFocusEffect(
 		useCallback(() => {
+			trackAnalyticsEvent(ANALYTICS_EVENTS.LEARNING_OPENED)
 			return () => {
 				void output.stop()
 				setPlaying(false)
@@ -380,6 +383,8 @@ export function LearningScreen () {
 					{playError}
 				</Text>
 			) : null}
+
+			<AdBanner placement="learning" />
 		</Screen>
 	)
 }

@@ -12,6 +12,12 @@ import { Screen } from '@/src/components/Screen'
 import { VisualMnemonicCard } from '@/src/components/mnemonic/VisualMnemonicCard'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
+	ANALYTICS_EVENTS,
+	mapCourse,
+	sanitizeLessonId,
+	trackAnalyticsEvent,
+} from '@/src/analytics'
+import {
 	buildLessonResult,
 	generateLessonSession,
 	getCourseById,
@@ -19,6 +25,7 @@ import {
 	getSymbolById,
 	type LessonQuestionResult,
 } from '@/src/domain'
+import { setTrainingActive } from '@/src/features/ads'
 import { createSymbolPlaybackController } from '@/src/features/playback'
 import { saveLessonResultAndProgress } from '@/src/features/learning/progress'
 import {
@@ -72,6 +79,8 @@ export function LessonScreen ({ navigation }: Props) {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true
+			// Block interstitial while a lesson is on screen.
+			setTrainingActive(true)
 			void (async () => {
 				setLoading(true)
 				const [progress, prefs] = await Promise.all([
@@ -86,8 +95,12 @@ export function LessonScreen ({ navigation }: Props) {
 					farnsworthMultiplier: prefs.farnsworthMultiplier,
 					toneFrequencyHz: prefs.toneFrequencyHz,
 				}
-				setCourseId(progress.currentCourseId as 'ru-main' | 'latin-main')
-				setLessonId(progress.currentLessonId)
+				const nextCourseId = progress.currentCourseId as
+					| 'ru-main'
+					| 'latin-main'
+				const nextLessonId = progress.currentLessonId
+				setCourseId(nextCourseId)
+				setLessonId(nextLessonId)
 				setIntroIndex(0)
 				setQuestionIndex(0)
 				setResults([])
@@ -96,9 +109,15 @@ export function LessonScreen ({ navigation }: Props) {
 				lessonStartedAtRef.current = wallTimeMs()
 				historyWrittenRef.current = false
 				setLoading(false)
+				const safeLessonId = sanitizeLessonId(nextLessonId)
+				trackAnalyticsEvent(ANALYTICS_EVENTS.LESSON_STARTED, {
+					course: mapCourse(nextCourseId),
+					...(safeLessonId ? { lesson_id: safeLessonId } : {}),
+				})
 			})()
 			return () => {
 				active = false
+				setTrainingActive(false)
 				void playbackRef.current.stop()
 			}
 		}, []),

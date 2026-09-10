@@ -15,6 +15,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Haptics from 'expo-haptics'
 
+import {
+	ANALYTICS_EVENTS,
+	mapAlphabet,
+	sessionLengthBucket,
+	trackAnalyticsEvent,
+	wpmBucket,
+} from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { VisualMnemonicCard } from '@/src/components/mnemonic/VisualMnemonicCard'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
@@ -27,6 +34,7 @@ import {
 	sequenceToPattern,
 	timingSummaryLabelRu,
 } from '@/src/domain'
+import { setTrainingActive } from '@/src/features/ads'
 import { getMorseAudioService } from '@/src/features/morseAudio'
 import { createSymbolPlaybackController } from '@/src/features/playback'
 import {
@@ -113,6 +121,13 @@ export function TransmitSessionScreen ({ navigation, route }: Props) {
 			seed: route.params.seed,
 			weights: route.params.weights,
 		})
+		trackAnalyticsEvent(ANALYTICS_EVENTS.TRANSMIT_STARTED, {
+			alphabet: mapAlphabet(route.params.settings.alphabet),
+			session_length_bucket: sessionLengthBucket(
+				route.params.settings.sessionLength,
+			),
+			wpm_bucket: wpmBucket(route.params.settings.characterWpm),
+		})
 		applyMachine({ type: 'START', questions })
 		return () => {
 			clearAutoEval()
@@ -185,7 +200,9 @@ export function TransmitSessionScreen ({ navigation, route }: Props) {
 
 	useFocusEffect(
 		useCallback(() => {
+			setTrainingActive(true)
 			return () => {
+				setTrainingActive(false)
 				applyMachine({ type: 'DISCARD_OPEN_PRESS' })
 				void stopAudio()
 			}

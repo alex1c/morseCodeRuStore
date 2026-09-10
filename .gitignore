@@ -49,5 +49,6 @@ coverage/
 # generated native folders
 /ios
 /android
+android/local.properties
 
 dist-smoke/

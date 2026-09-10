@@ -2,11 +2,21 @@
  * Receive session result summary.
  */
 
+import { useEffect } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
+import {
+	ANALYTICS_EVENTS,
+	accuracyBucket,
+	mapAlphabet,
+	sessionLengthBucket,
+	trackAnalyticsEvent,
+	wpmBucket,
+} from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
+import { goHomeAfterResult } from '@/src/features/ads'
 import { getSymbolById } from '@/src/domain'
 import type { RootStackParamList } from '@/src/navigation/types'
 import { spacing, typography, useTheme } from '@/src/theme'
@@ -17,6 +27,25 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ReceiveResult'>
 export function ReceiveResultScreen ({ navigation, route }: Props) {
 	const { colors } = useTheme()
 	const { result, settings, symbolPool, weights, durationMs } = route.params
+
+	// Coarse receive completion — never send answers or Morse text.
+	useEffect(() => {
+		trackAnalyticsEvent(ANALYTICS_EVENTS.RECEIVE_COMPLETED, {
+			alphabet: mapAlphabet(settings.alphabet),
+			content_kind: settings.contentKind,
+			answer_mode: settings.answerMode,
+			session_length_bucket: sessionLengthBucket(settings.sessionLength),
+			wpm_bucket: wpmBucket(settings.characterWpm),
+			accuracy_bucket: accuracyBucket(result.accuracyPercent),
+		})
+	}, [
+		result.accuracyPercent,
+		settings.alphabet,
+		settings.answerMode,
+		settings.characterWpm,
+		settings.contentKind,
+		settings.sessionLength,
+	])
 
 	const strong = result.strongSymbolIds
 		.map((id) => getSymbolById(id)?.character ?? '?')
@@ -176,7 +205,9 @@ export function ReceiveResultScreen ({ navigation, route }: Props) {
 				<AppButton
 					label="На главный экран"
 					variant="secondary"
-					onPress={() => navigation.navigate('Home')}
+					onPress={() => {
+						void goHomeAfterResult(navigation)
+					}}
 				/>
 			</View>
 		</Screen>

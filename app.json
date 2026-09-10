@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Тренажёр азбуки Морзе",
+    "name": "Морзе-тренер",
     "slug": "morse-code-rustore",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,12 +31,16 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       [
         "expo-camera",
         {

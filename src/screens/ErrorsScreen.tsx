@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useFocusEffect } from '@react-navigation/native'
 
+import { ANALYTICS_EVENTS, trackAnalyticsEvent } from '@/src/analytics'
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
 import {
@@ -20,6 +21,7 @@ import {
 	buildPairTrainingPlan,
 	selectWeakSymbolPool,
 } from '@/src/domain'
+import { AdBanner } from '@/src/features/ads'
 import {
 	adaptiveLaunchCooldown,
 	buildReceiveLaunch,
@@ -117,6 +119,7 @@ export function ErrorsScreen ({ navigation }: Props) {
 			baseSettings: { ...baseSettings, symbolPreset: 'weak' },
 			cooldownN: adaptiveLaunchCooldown(),
 		})
+		trackAnalyticsEvent(ANALYTICS_EVENTS.WEAK_TRAINING_STARTED)
 		navigation.navigate('ReceiveSession', {
 			...launch,
 			sessionSource: 'receive',
@@ -140,6 +143,8 @@ export function ErrorsScreen ({ navigation }: Props) {
 			baseSettings: { ...baseSettings, symbolPreset: 'custom' },
 			cooldownN: pairLaunchCooldown(),
 		})
+		// No pair letter ids in analytics — event name only.
+		trackAnalyticsEvent(ANALYTICS_EVENTS.PAIR_TRAINING_STARTED)
 		navigation.navigate('ReceiveSession', {
 			...launch,
 			sessionSource: 'receive',
@@ -184,6 +189,7 @@ export function ErrorsScreen ({ navigation }: Props) {
 						onPress={() => navigation.navigate('Receive')}
 					/>
 				</SurfaceCard>
+				<AdBanner placement="errors" />
 			</Screen>
 		)
 	}
@@ -294,6 +300,8 @@ export function ErrorsScreen ({ navigation }: Props) {
 					onPress={startAdaptive}
 				/>
 			</SurfaceCard>
+
+			<AdBanner placement="errors" />
 		</Screen>
 	)
 }

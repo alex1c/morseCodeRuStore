@@ -8,6 +8,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
 import { Screen } from '@/src/components/Screen'
 import { AppButton, SurfaceCard } from '@/src/components/ui'
+import {
+	ANALYTICS_EVENTS,
+	mapAlphabet,
+	trackAnalyticsEvent,
+} from '@/src/analytics'
 import type { RootStackParamList } from '@/src/navigation/types'
 import {
 	saveSelectedAlphabet,
@@ -73,6 +78,10 @@ export function OnboardingScreen ({ navigation }: Props) {
 			const alphabet = next.alphabet ?? selected
 			await saveSelectedAlphabet(alphabet)
 			await refreshPreferences()
+			trackAnalyticsEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETED)
+			trackAnalyticsEvent(ANALYTICS_EVENTS.ALPHABET_SELECTED, {
+				alphabet: mapAlphabet(alphabet),
+			})
 			if (next.goToLesson) {
 				navigation.reset({
 					index: 1,
@@ -100,6 +109,10 @@ export function OnboardingScreen ({ navigation }: Props) {
 			// Belt-and-suspenders if storage already had alphabet without flag.
 			await updateUserPreferences({ onboardingCompleted: true })
 			await refreshPreferences()
+			trackAnalyticsEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETED)
+			trackAnalyticsEvent(ANALYTICS_EVENTS.ALPHABET_SELECTED, {
+				alphabet: mapAlphabet(selected),
+			})
 			navigation.reset({
 				index: 0,
 				routes: [{ name: 'Home' }],
