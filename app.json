@@ -22,7 +22,7 @@
       "package": "com.calculatorplatform.morsecodetrainer",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#F4F7F6",
+        "backgroundColor": "#0A1630",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
