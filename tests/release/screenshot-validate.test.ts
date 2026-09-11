@@ -26,7 +26,7 @@ function writeTinyPng (filePath: string, width: number, height: number) {
 }
 
 describe('validate-screenshots script', () => {
-	test('exits non-zero when screenshots are missing', () => {
+	test('accepts the intentional six-shot release set', () => {
 		const script = path.join(
 			process.cwd(),
 			'scripts',
@@ -35,8 +35,8 @@ describe('validate-screenshots script', () => {
 		const result = spawnSync(process.execPath, [script], {
 			encoding: 'utf8',
 		})
-		expect(result.status).not.toBe(0)
-		expect(result.stdout + result.stderr).toMatch(/MISSING|PENDING/i)
+		expect(result.status).toBe(0)
+		expect(result.stdout).toMatch(/OK: 6/)
 	})
 
 	test('detects wrong PNG dimensions via IHDR', () => {

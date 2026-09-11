@@ -17,8 +17,6 @@ const EXPECTED = [
 	'04-receive.png',
 	'05-transmit.png',
 	'06-words.png',
-	'07-adaptive.png',
-	'08-stats.png',
 ]
 const WIDTH = 1080
 const HEIGHT = 1920

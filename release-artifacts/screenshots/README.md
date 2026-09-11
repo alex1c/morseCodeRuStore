@@ -19,7 +19,7 @@ Do **not** use 1080×2400 or raw emulator resolution as the store asset.
 | `07-adaptive.png` | Мои ошибки / умная тренировка |
 | `08-stats.png` | Статистика |
 
-Minimum: **6** high-quality shots from the table above.
+Release set for version 1.0.0: **6** high-quality shots. The adaptive and stats screenshots are intentionally omitted because the clean release state has no accumulated statistics.
 
 ## Capture rules
 
